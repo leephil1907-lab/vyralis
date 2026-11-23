@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { NavLink, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import {
-  Activity, ArrowDownToLine, ArrowUpRight, AudioLines, BarChart3, Bell, CalendarDays,
-  Check, ChevronDown, CircleHelp, Clapperboard, CloudUpload, Command, Compass, Film,
+  Activity, ArrowUpRight, BarChart3, Bell, CalendarDays,
+  Check, ChevronDown, CircleHelp, Clapperboard, Compass, Film,
   FolderOpen, Gauge, HardDrive, Layers3, Link2, ListVideo, Menu, MessageSquareText,
   MoreHorizontal, Play, Plus, Search, Settings2, ShieldCheck, Sparkles, Subtitles,
   WandSparkles, X, Youtube, Instagram, Radio, Clock3, SlidersHorizontal, Zap, Palette,
@@ -77,7 +78,7 @@ function App() {
     setNotice("Link accepted by the interface. Source resolution and clipping are not connected to the backend yet, so no job has been created.");
   }
 
-  const page = (node:React.ReactNode) => <motion.div className="page-content" key={location.pathname} {...pageMotion} transition={{duration:.24,ease:[.22,1,.36,1]}}>{node}</motion.div>;
+  const page = (node:ReactNode) => <motion.div className="page-content" key={location.pathname} {...pageMotion} transition={{duration:.24,ease:[.22,1,.36,1]}}>{node}</motion.div>;
   const PageHeader = ({eyebrow,heading,description,action}:{eyebrow:string;heading:string;description:string;action?:React.ReactNode}) => <div className="page-heading"><div><div className="eyebrow"><Sparkles size={13}/>{eyebrow}</div><h1>{heading}</h1><p>{description}</p></div>{action&&<div className="heading-action">{action}</div>}</div>;
   const Glass = ({children,className=""}:{children:React.ReactNode;className?:string}) => <section className={"glass "+className}>{children}</section>;
   const Empty = ({icon:Icon=Film,title:heading,copy,action}:{icon?:any;title:string;copy:string;action?:React.ReactNode}) => <div className="empty-panel"><div className="empty-icon"><Icon size={23}/></div><h3>{heading}</h3><p>{copy}</p>{action}</div>;
