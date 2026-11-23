@@ -48,6 +48,8 @@ The complete feature inventory, current implementation status and acceptance gat
 
 Architecture and service boundaries: [docs/architecture.md](docs/architecture.md).
 
+Upstream research — which open-source clippers and components are worth using, and which are licence traps: [docs/upstream-evaluation.md](docs/upstream-evaluation.md).
+
 Target API contract: [docs/api-contract.md](docs/api-contract.md). This is a target contract; routes are not implemented merely because they are documented.
 
 Security, privacy and media-rights requirements: [docs/security-and-privacy.md](docs/security-and-privacy.md).

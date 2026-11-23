@@ -17,7 +17,9 @@ VYRALIS is a browser-based studio backed by a local-first processing service. Th
 
 ## Candidate upstream projects
 
-ShortsFlow, AutoClip, ClippyMe, Clippy, Cutroom, VideoHighlighter, WhisperX, PySceneDetect, Ultralytics, MediaPipe, Remotion, FFmpeg and Auto-Editor are candidates for evaluation—not assumed dependencies. Before adoption, inspect repository ownership, maintenance, source quality, licence, model terms, installation path, resource profile and reproducible output quality.
+The current, evidence-based evaluation lives in [docs/upstream-evaluation.md](upstream-evaluation.md). It records stars, licence, last push, manifests and README claims for each candidate as of 2026-11-23, plus the licence traps found (a 4k-star "open-source" clipper is noncommercial, a 6.5k-star clipper is a paid-API client, and the most complete auto-publishing implementation is AGPL).
+
+Adoption rule: components with permissive licences (yt-dlp, faster-whisper, PySceneDetect, auto-editor, MediaPipe, Ollama) can be integrated behind adapters; entire clipper applications are references only. Never copy code from an AGPL or noncommercial project into this repository, and re-verify licences before each dependency is added.
 
 Do not copy entire upstream applications into this repository. Prefer isolated adapters, subprocess boundaries or documented integration interfaces. Preserve upstream attribution and licence notices.
 
