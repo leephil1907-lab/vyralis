@@ -1,41 +1,57 @@
 # VYRALIS implementation roadmap
 
-## Phase 0 — Foundation
-- [x] Establish product identity and repository documentation.
-- [x] Create React + TypeScript + Vite application shell.
-- [x] Create local FastAPI service and health endpoint.
-- [x] Implement local media ingestion endpoint and asset listing.
-- [ ] Add persistent metadata database and safe media lifecycle management.
-- [ ] Add automated tests and CI build checks.
+## Release 0 — Foundation hardening
+- [x] Product identity, React + TypeScript + Vite shell, FastAPI health API and initial local media upload/listing.
+- [x] Product specification and architecture direction.
+- [ ] SQLite local / PostgreSQL hosted persistence and migrations.
+- [ ] FFprobe validation, upload limits, MIME sniffing and safe path isolation.
+- [ ] Durable job model, worker lifecycle, progress, cancellation and retry.
+- [ ] API validation, tests and CI test coverage.
 
-## Phase 1 — Reliable media intelligence
-- [ ] Probe media metadata and validate codecs with FFprobe.
-- [ ] Integrate transcription with word-level timestamps.
-- [ ] Add speaker diarization and scene detection.
-- [ ] Store analysis outputs as versioned artifacts.
-- [ ] Add reviewable transcript and timeline UI.
+## Release 1 — Real clipping MVP
+- [ ] Local file import and validated source adapters.
+- [ ] WhisperX/faster-whisper transcription and word timestamps.
+- [ ] Speaker diarization with optional backend selection.
+- [ ] PySceneDetect and audio energy/silence analysis.
+- [ ] Explainable highlight candidate scoring.
+- [ ] Candidate review and manual trim/split/merge.
+- [ ] FFmpeg 9:16, 1:1 and 16:9 composition and caption rendering.
+- [ ] Playable preview and verified MP4 export.
 
-## Phase 2 — Highlight discovery
-- [ ] Build candidate-window generation.
-- [ ] Score clips using semantic coherence, hook strength, story completeness, speaker/audio signals and scene boundaries.
-- [ ] Explain why each candidate was selected.
-- [ ] Allow manual trim, merge, split and exclusion.
+## Release 2 — Professional editor
+- [ ] Transcript-linked timeline and word-level edit controls.
+- [ ] YOLO/MediaPipe subject tracking and active-speaker layouts.
+- [ ] Caption Lab with styles, karaoke emphasis and multilingual workflows.
+- [ ] Brand kits, watermark, title/hook overlays and templates.
+- [ ] Remotion motion-graphics integration after runtime/licence validation.
+- [ ] Render queue, batch processing, retries and quality gate.
 
-## Phase 3 — Editing and composition
-- [ ] Add subject-aware reframing and manual crop controls.
-- [ ] Add caption themes and word-level emphasis.
-- [ ] Add title/hook overlays, safe zones and optional B-roll.
-- [ ] Save edits as non-destructive project data.
+## Release 3 — Growth Intelligence (Blow Up-inspired)
+- [ ] Authorized creator profile/channel audit.
+- [ ] Audience and niche-aware content ideas.
+- [ ] Script, hook, CTA and title generation.
+- [ ] Video critique for pacing, clarity, audio, visual quality and opening hook.
+- [ ] Thumbnail, description, hashtag and chapter generation.
+- [ ] Cross-platform repurpose plans and content calendar.
+- [ ] Brand voice and creator-specific recommendations.
 
-## Phase 4 — Rendering and delivery
-- [ ] Build durable render queue with cancellation and retries.
-- [ ] Add FFmpeg export presets for Shorts, Reels and TikTok.
-- [ ] Evaluate Remotion for advanced motion-graphics templates.
-- [ ] Add render previews, downloadable exports and output validation.
+## Release 4 — Publishing and analytics
+- [ ] Official YouTube publishing adapter.
+- [ ] Approved Instagram/Facebook publishing adapter.
+- [ ] TikTok Content Posting API capability and app-review assessment.
+- [ ] Independently assess LinkedIn, X, Threads and Pinterest.
+- [ ] OAuth, scopes, destination capability checks and credential management.
+- [ ] Draft preview, scheduling, publishing logs and retries.
+- [ ] Import available post metrics and build performance reports.
+- [ ] Use performance data to improve future recommendations.
 
-## Phase 5 — Production readiness
-- [ ] Authentication and project isolation for hosted mode.
-- [ ] Local installer and model/dependency manager.
-- [ ] GPU capability detection and CPU fallback.
-- [ ] Security review, dependency licence review and performance benchmarks.
-- [ ] End-to-end tests on representative, rights-cleared media.
+## Release 5 — Production quality and scale
+- [ ] Local installer, dependency/model manager and hardware diagnostics.
+- [ ] Hosted isolated workers, private object storage and quotas.
+- [ ] Accessibility, keyboard and responsive review.
+- [ ] End-to-end media quality tests and golden output tests.
+- [ ] Security, privacy, licence and performance audit.
+- [ ] Monitoring, backup, retention and account deletion workflows.
+
+## Release gates
+A capability is complete only after implementation, automated tests, manual verification with representative rights-cleared media, and documented hardware/API requirements. UI mockups and placeholder controls do not count as completed features.
