@@ -11,6 +11,7 @@ import {
   Scissors, Upload, ExternalLink, Video, Captions, ChartNoAxesCombined
 } from "lucide-react";
 import { api, type Health, type MediaAsset } from "./lib/api";
+import ReviewPage from "./pages/ReviewPage";
 
 const navGroups = [
   { label: "WORKSPACE", items: [
@@ -61,7 +62,7 @@ function App() {
   async function upload(files:FileList|null) {
     if(!files?.length) return;
     setBusy(true); setNotice("Importing media to this workspace…");
-    try { for(const file of Array.from(files)) await api.upload(file); await refresh(); setNotice("Media imported."); }
+    try { let lastProject: string | null = null; for(const file of Array.from(files)) { const asset = await api.upload(file); const project = await api.createProject(asset.id); lastProject = project.id + "?job=" + project.job_id; } await refresh(); setNotice("Upload complete. Processing has started."); if(lastProject) navigate("/review/" + lastProject); }
     catch(e){ setNotice(e instanceof Error?e.message:"Import failed."); }
     finally { setBusy(false); if(input.current) input.current.value=""; }
   }
@@ -78,7 +79,7 @@ function App() {
     if(!["youtube.com","youtu.be","m.youtube.com","twitch.tv","clips.twitch.tv","kick.com"].includes(host)){
       setNotice("Supported sources: YouTube, Twitch and Kick links."); return;
     }
-    setNotice("Link accepted by the interface. Source resolution and clipping are not connected to the backend yet, so no job has been created.");
+    setNotice("This source adapter is not connected yet. Upload a local video to start the working transcription and clipping pipeline.");
   }
 
   const page = (node:ReactNode) => <motion.div className="page-content" key={location.pathname} {...pageMotion} transition={{duration:.24,ease:[.22,1,.36,1]}}>{node}</motion.div>;
@@ -105,10 +106,10 @@ function App() {
   }
 
   function Create(){
-    return page(<><PageHeader eyebrow="CLIP STUDIO" heading={<>Find the moments that <em>move people.</em></>} description="Start with a source. VYRALIS will be built around highlight discovery, vertical clips, captions and publishing."/>
+    return page(<><PageHeader eyebrow="CLIP STUDIO" heading={<>Find the moments that <em>move people.</em></>} description="Upload a supported video to start real transcription, ranked highlight analysis and MP4 clip generation."/>
       <Glass className="create-panel"><div className="source-tabs"><span className="source-tab active"><Link2 size={15}/> Paste video link</span><button className="source-tab" onClick={()=>input.current?.click()}><Upload size={15}/> Upload video</button></div><div className="source-input-wrap"><Link2 size={18}/><input value={sourceUrl} onChange={e=>setSourceUrl(e.target.value)} onKeyDown={e=>e.key==="Enter"&&beginLinkFlow()} placeholder="Paste a YouTube, Twitch or Kick video URL"/><button className="button-primary" onClick={beginLinkFlow}>Continue <ArrowUpRight size={15}/></button></div><div className="source-support"><span><Youtube size={14}/> YouTube</span><span><Radio size={14}/> Twitch</span><span><Zap size={14}/> Kick</span><span className="source-note">Video link or local upload</span></div><input ref={input} type="file" accept="video/*" hidden onChange={e=>void upload(e.target.files)}/>{notice&&<div className="notice"><ShieldCheck size={15}/>{notice}</div>}</Glass>
       <div className="section-title"><div><span className="micro-label">YOUR CLIPPING WORKFLOW</span><h2>From source to shareable</h2></div></div><div className="workflow-grid">{[{n:"01",icon:Compass,title:"Discover highlights",desc:"Audio energy, transcript context, scene changes and standout moments."},{n:"02",icon:Scissors,title:"Shape every clip",desc:"Trim, split, reframe and refine your strongest moments."},{n:"03",icon:Captions,title:"Style your story",desc:"Word-timed captions, hooks, titles and reusable brand presets."},{n:"04",icon:Radio,title:"Publish & learn",desc:"Prepare platform versions, schedule posts and review performance."}].map(item=><Glass className="workflow-card" key={item.n}><span className="workflow-number">{item.n}</span><item.icon size={20}/><h3>{item.title}</h3><p>{item.desc}</p></Glass>)}</div>
-      <div className="integration-note"><Sparkles size={16}/><div><b>Processing integrations are being connected</b><p>The product architecture is mapped for FFmpeg, WhisperX/faster-whisper, PySceneDetect, MediaPipe/YOLO and NeonClipping-style source adapters. This screen does not claim those engines are running yet.</p></div></div>
+      <div className="integration-note"><Sparkles size={16}/><div><b>Processing integrations are being connected</b><p>Uploads are validated with FFprobe, audio is extracted with FFmpeg, speech is transcribed with faster-whisper, and transcript windows are ranked for review. URL ingestion is not enabled in this release.</p></div></div>
     </>);
   }
 
@@ -141,7 +142,7 @@ function App() {
     </aside>
     {mobileNav&&<button className="mobile-scrim" aria-label="Close navigation" onClick={()=>setMobileNav(false)}/>}
     <main className="main"><header className="topbar"><div className="topbar-left"><button className="mobile-menu" onClick={()=>setMobileNav(v=>!v)} aria-label="Toggle menu"><Menu size={19}/></button><div className="breadcrumb">Workspace <span>/</span> {title}</div></div><div className="top-actions"><div className="engine-pill"><span className={"status-dot "+(health?"online":"")}/>{health?"ENGINE ONLINE":"ENGINE OFFLINE"}</div><button className="top-icon" aria-label="Help"><CircleHelp size={17}/></button><button className="top-icon" aria-label="Notifications"><Bell size={17}/></button><div className="avatar-mini">V</div></div></header>
-      <div className="content"><AnimatePresence mode="wait"><Routes location={location} key={location.pathname}><Route path="/" element={<Dashboard/>}/><Route path="/projects" element={<Projects/>}/><Route path="/create" element={<Create/>}/><Route path="/editor" element={<Editor/>}/><Route path="/publishing" element={<Publishing/>}/><Route path="/calendar" element={<Calendar/>}/><Route path="/analytics" element={<Analytics/>}/><Route path="/growth" element={<Growth/>}/><Route path="/trends" element={<Trends/>}/><Route path="/storylab" element={<StoryLab/>}/><Route path="/canvas" element={<Canvas/>}/><Route path="/brand" element={<Brand/>}/><Route path="/settings" element={<Settings/>}/><Route path="*" element={<Dashboard/>}/></Routes></AnimatePresence><footer className="footer"><span>VYRALIS STUDIO <i>· Every moment has a story.</i></span><span className="footer-status"><span className={"status-dot "+(health?"online":"")}/>{health?"Local engine responding":"Local engine not connected"}</span><span>STUDIO / 0.2</span></footer></div>
+      <div className="content"><AnimatePresence mode="wait"><Routes location={location} key={location.pathname}><Route path="/" element={<Dashboard/>}/><Route path="/projects" element={<Projects/>}/><Route path="/create" element={<Create/>}/><Route path="/editor" element={<Editor/>}/><Route path="/review/:projectId" element={<ReviewPage/>}/><Route path="/publishing" element={<Publishing/>}/><Route path="/calendar" element={<Calendar/>}/><Route path="/analytics" element={<Analytics/>}/><Route path="/growth" element={<Growth/>}/><Route path="/trends" element={<Trends/>}/><Route path="/storylab" element={<StoryLab/>}/><Route path="/canvas" element={<Canvas/>}/><Route path="/brand" element={<Brand/>}/><Route path="/settings" element={<Settings/>}/><Route path="*" element={<Dashboard/>}/></Routes></AnimatePresence><footer className="footer"><span>VYRALIS STUDIO <i>· Every moment has a story.</i></span><span className="footer-status"><span className={"status-dot "+(health?"online":"")}/>{health?"Local engine responding":"Local engine not connected"}</span><span>STUDIO / 0.2</span></footer></div>
     </main>
     {notice&&!location.pathname.includes("create")&&!location.pathname.includes("publishing")&&<div className="toast" onClick={()=>setNotice("")}>{notice}<X size={14}/></div>}
   </div>;
