@@ -36,7 +36,13 @@ export default function ReviewPage() {
     const timer=window.setInterval(()=>void refresh(),2000);
     return ()=>window.clearInterval(timer);
   },[job,refresh]);
-  useEffect(()=>{\n    if(!renderJobId)return;\n    let stopped=false;\n    const check=async()=>{try{const current=await api.job(renderJobId);if(stopped)return;setRenderMessage(current.message);if(current.status==="completed"){stopped=true;window.location.href=api.fileUrl(`/api/clips/${clips.find(c=>c.id===selected)?.id}/download`);setRenderJobId("");}else if(current.status==="failed"){stopped=true;setError(current.error||current.message);setRenderJobId("");}}catch(e){if(!stopped)setError(e instanceof Error?e.message:"Render status unavailable.");}};\n    void check();const timer=window.setInterval(()=>void check(),1500);return()=>{stopped=true;window.clearInterval(timer);};\n  },[renderJobId,clips,selected]);\n  const active=clips.find(c=>c.id===selected)||clips[0];
+  useEffect(()=>{
+    if(!renderJobId)return;
+    let stopped=false;
+    const check=async()=>{try{const current=await api.job(renderJobId);if(stopped)return;setRenderMessage(current.message);if(current.status==="completed"){stopped=true;window.location.href=api.fileUrl(`/api/clips/${clips.find(c=>c.id===selected)?.id}/download`);setRenderJobId("");}else if(current.status==="failed"){stopped=true;setError(current.error||current.message);setRenderJobId("");}}catch(e){if(!stopped)setError(e instanceof Error?e.message:"Render status unavailable.");}};
+    void check();const timer=window.setInterval(()=>void check(),1500);return()=>{stopped=true;window.clearInterval(timer);};
+  },[renderJobId,clips,selected]);
+  const active=clips.find(c=>c.id===selected)||clips[0];
   async function save(){
     if(!active)return; setBusy(true);setError("");
     try{await api.editClip(active);setClips(await api.clips(projectId));}
