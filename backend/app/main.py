@@ -112,7 +112,7 @@ def score_candidate(text: str, duration: float) -> tuple[int,dict[str,int],str]:
     return round(sum(parts.values())/len(parts)),parts,"Heuristic score from transcript hook cues, emotional language, clarity, narrative transitions and duration. Not a prediction of virality."
 
 
-def make_clips(project_id: str, transcript: list[dict[str,Any]], clip_min: int, clip_max: int) -> int:
+def make_clips(project_id: str, transcript: list[dict[str,Any]], clip_min: int, clip_max: int, clip_count: int) -> int:
     candidates=[]
     for i,first in enumerate(transcript):
         start=max(0.0,first["start"]); end=first["end"]; text=[first["text"]]
@@ -126,7 +126,7 @@ def make_clips(project_id: str, transcript: list[dict[str,Any]], clip_min: int, 
     for item in sorted(candidates,key=lambda c:score_candidate(c[2],c[1]-c[0])[0],reverse=True):
         if all(item[1]<=old[0]+2 or item[0]>=old[1]-2 for old in selected):
             selected.append(item)
-        if len(selected)>=12: break
+        if len(selected)>=clip_count: break
     if not selected:
         raise RuntimeError("No transcript windows fit the selected duration. Try a shorter minimum duration.")
     with connect() as db:
@@ -157,7 +157,7 @@ def process_job(job_id: str) -> None:
         transcript=transcribe(audio)
         update_job(job_id,stage="highlight_analysis",progress=65,message="Finding and ranking self-contained moments")
         options=json.loads(job["options"])
-        count=make_clips(project["id"],transcript,int(options.get("min_duration",15)),int(options.get("max_duration",60)))
+        count=make_clips(project["id"],transcript,int(options.get("min_duration",15)),int(options.get("max_duration",60)),int(options.get("clip_count",8)))
         update_job(job_id,status="completed",stage="complete",progress=100,message=f"Analysis complete. {count} ranked clip candidates are ready.")
         with connect() as db: db.execute("UPDATE projects SET status='review',updated_at=? WHERE id=?",(now(),project["id"]))
     except Exception as exc:
