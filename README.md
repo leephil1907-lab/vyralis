@@ -44,7 +44,7 @@ VYRALIS is being developed as a complete video production workflow—not just an
 | Rendering | Reproducible exports from a dedicated media pipeline |
 | Workflow | Project history, clip review and batch processing |
 
-These are product goals, not a claim that every capability is implemented today. The repository is currently an initialized project foundation.
+These are product goals, not a claim that every capability is implemented today. The repository now contains the first React + TypeScript studio interface and a local FastAPI media-ingestion service. The advanced AI analysis and editing engines are still being integrated.
 
 ## Design identity
 
@@ -73,7 +73,7 @@ Every dependency will be evaluated for maintenance, hardware requirements, secur
 
 **Status: Foundation / architecture and implementation in progress.**
 
-There is no production-ready installer or end-to-end clipping workflow in this repository yet. Features will be marked complete only after implementation and verification.
+The first application foundation is committed: responsive studio dashboard, backend health endpoint, local media upload and asset listing. There is not yet an end-to-end AI clipping workflow or production installer. Features will be marked complete only after implementation and verification.
 
 ## Contributing
 
