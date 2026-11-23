@@ -56,3 +56,20 @@
 
 ## Release gates
 A capability is complete only after implementation, automated tests, manual verification with representative rights-cleared media, and documented hardware/API requirements. UI mockups and placeholder controls do not count as completed features.
+
+
+## Release 3A — Niche Intelligence and StoryLab
+- [ ] Trend and niche category discovery with freshness, source, confidence and geography labels.
+- [ ] Demand, competition, clip-density, evergreen and monetization-fit scoring with transparent evidence.
+- [ ] Niche watchlists, comparisons, content gaps and recurring series plans.
+- [ ] Topic/transcript-to-storyline generation with hooks, narrative beats and CTA.
+- [ ] Scene-by-scene storyboard with narration, visual direction, shot prompts and time estimates.
+- [ ] Fact/source verification workflow and reference-image/style continuity.
+- [ ] Image, video, voice and sound provider adapters with licensing/consent controls.
+
+## Release 3B — Visual Workflow Canvas
+- [ ] Typed node graph for brief, research, script, storyboard, media generation, voice, composition, captions, quality gate and publishing.
+- [ ] Branching, parallel tasks, reusable templates and downstream reruns.
+- [ ] Autosave, version history, previews, logs, retries and durable DAG execution.
+- [ ] Provider registry with capability, availability, region, pricing and rights metadata.
+- [ ] End-to-end strategy-to-publish workflow tests.
