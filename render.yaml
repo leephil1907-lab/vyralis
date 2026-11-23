@@ -1,11 +1,16 @@
-# Render blueprint for the VYRALIS processing API.
+# Render blueprint for VYRALIS.
 #
-# The studio frontend is a static Vite build — deploy it on Vercel (or a Render static
-# site) and point VITE_API_BASE_URL at this service. This blueprint only builds the API,
-# because it needs FFmpeg, yt-dlp and enough memory for Whisper.
+# One service: the Dockerfile builds the Vite studio and the FastAPI engine, and the
+# engine serves the studio from the same origin (VYRALIS_WEB_DIR). That keeps API calls
+# same-origin (no CORS), lets the optional HTTP Basic gate protect the whole app, and
+# gives OAuth callbacks and media downloads one host.
 #
 # Sizing: 2 GB is the practical floor for FFmpeg + faster-whisper "base". Free instances
 # have 512 MB and spin down, which kills long jobs; use at least Starter.
+#
+# Deploy the frontend separately only if you need a CDN split: `vercel.json` is included
+# for that case, and then set VITE_API_BASE_URL on the frontend and VYRALIS_CORS_ORIGINS
+# here.
 services:
   - type: web
     name: vyralis-api
@@ -21,6 +26,9 @@ services:
     envVars:
       - key: VYRALIS_DATA_DIR
         value: /var/lib/vyralis
+      # The studio build inside the image; FastAPI serves it for non-API routes.
+      - key: VYRALIS_WEB_DIR
+        value: /app/dist
       # One worker process: the job pool is in-process and SQLite is the queue.
       - key: VYRALIS_WORKERS
         value: "1"

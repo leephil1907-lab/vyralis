@@ -66,6 +66,19 @@ Fonts: Poppins (display), DM Sans (body), Instrument Serif (italic accents), Spa
 
 `public/assets/landing/` holds four generated 3D stills (`shapes-hero`, `torus`, `ribbon`, `toys`) as WebP under 45 KB each. They are decorative; alt text describes the shapes rather than implying product screenshots. The studio mark stays at `public/assets/vyralis-mark.svg`.
 
+## Readability pass
+
+The first build set labels at 9px and body copy at 10–11px, which is too small to read at
+100% zoom on a laptop. The studio now uses a 10.5 / 11.5 / 12.5px scale for micro labels,
+helper text and body copy respectively, with mirrored selector overrides at the end of
+`src/styles.css` so the minified rules above stay untouched and auditable. Muted colour
+(`#99a4bf`) replaces the darker greys those sizes previously used, which keeps small text
+above 4.5:1 contrast on the card background.
+
+Form controls in Review and Publish previously fell back to the browser's white default
+inputs because only the source bar and search box were styled. `label > input/textarea/select`
+now share the dark control style, with checkboxes excluded so toggle rows stay compact.
+
 ## Accessibility and motion
 
 - Semantic landmarks, labelled sections, visible focus rings, and a 44 px minimum target for primary actions.

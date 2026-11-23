@@ -140,6 +140,19 @@ class ApiSurfaceTests(unittest.TestCase):
         self.assertEqual(first["export_id"], again["export_id"])
         self.assertNotEqual(first["export_id"], changed["export_id"])
 
+    # --- deployment surface ---------------------------------------------
+
+    def test_readiness_reports_each_dependency(self):
+        payload = self.client.get("/api/ready").json()
+        ids = {check["id"] for check in payload["checks"]}
+        self.assertTrue({"ffmpeg", "ffprobe", "yt-dlp", "storage", "database", "web-build"} <= ids)
+        self.assertIn("ready", payload)
+
+    def test_unknown_api_route_stays_json_404(self):
+        response = self.client.get("/api/definitely-not-a-route")
+        self.assertEqual(response.status_code, 404)
+        self.assertIn("detail", response.json())
+
     # --- link ingestion -------------------------------------------------
 
     def test_preview_rejects_missing_and_unknown_urls(self):
