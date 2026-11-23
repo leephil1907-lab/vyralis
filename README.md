@@ -106,6 +106,8 @@ npm run dev
 
 The Vite dev and preview servers proxy `/api` to `http://127.0.0.1:8000`, so the browser stays on one origin and no CORS setup is needed. Point the proxy elsewhere with `VYRALIS_API_TARGET`, or set `VITE_API_BASE_URL` if the API is on another host.
 
+For the full test suite (including the HTTP surface tests, which need `httpx`), install `backend/requirements-dev.txt` instead and run `python -m unittest discover -s tests`. Tests that need FFmpeg skip themselves when it is absent.
+
 The first faster-whisper run downloads the configured model. Configure VYRALIS_WHISPER_MODEL, VYRALIS_WHISPER_DEVICE and VYRALIS_WHISPER_COMPUTE for the available hardware.
 
 ## Deployment boundary
