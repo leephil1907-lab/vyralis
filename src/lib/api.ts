@@ -35,6 +35,6 @@ export const api = {
     method: "PATCH", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ start_seconds: clip.start_seconds, end_seconds: clip.end_seconds, title: clip.title })
   }),
-  exportClip: (id: string) => request<{ download_url: string }>(`/api/clips/${id}/export`, { method: "POST" }),
+  exportClip: (id: string) => request<{ job_id: string; status: string }>(`/api/clips/${id}/export`, { method: "POST" }),
   fileUrl: (path: string) => `${API_BASE}${path}`
 };
