@@ -11,7 +11,7 @@ import {
   Scissors, Upload, Video, Captions, ChartNoAxesCombined, AudioLines, Plug,
   BookOpen
 } from "lucide-react";
-import { api, type Health, type MediaAsset } from "./lib/api";
+import { api, type Health, type MediaAsset, type Readiness, type StudioMetrics } from "./lib/api";
 import ReviewPage from "./pages/ReviewPage";
 import LandingPage from "./pages/LandingPage";
 import PublishPage from "./pages/PublishPage";
@@ -27,34 +27,30 @@ const DocsPage = lazy(() => import("./pages/DocsPage"));
 const DocsIndex = lazy(() => import("./pages/DocsPage").then((m) => ({ default: m.DocsIndex })));
 
 const navGroups = [
-  { label: "WORKSPACE", items: [
+  { label: "CREATE", items: [
     { to: "/studio", label: "Dashboard", icon: Layers3 },
-    { to: "/projects", label: "Projects", icon: FolderOpen },
-    { to: "/settings", label: "Settings", icon: Settings2 },
-  ]},
-  { label: "CLIP STUDIO", items: [
     { to: "/create", label: "Create clips", icon: Clapperboard },
+    { to: "/projects", label: "Projects", icon: FolderOpen },
   ]},
-  { label: "EDIT STUDIO", items: [
+  { label: "CRAFT", items: [
     { to: "/editor", label: "Video editor", icon: Scissors },
-  ]},
-  { label: "CREATIVE STUDIO", items: [
     { to: "/brand", label: "Brand kit", icon: Palette },
     { to: "/storylab", label: "StoryLab", icon: WandSparkles },
     { to: "/canvas", label: "Workflow canvas", icon: Network },
   ]},
-  { label: "GROWTH INTELLIGENCE", items: [
-    { to: "/growth", label: "Growth intelligence", icon: Compass },
-    { to: "/trends", label: "Trend & niche radar", icon: Activity },
-    { to: "/analytics", label: "Analytics", icon: ChartNoAxesCombined },
-  ]},
-  { label: "PUBLISH STUDIO", items: [
+  { label: "PUBLISH", items: [
     { to: "/publishing", label: "Publishing", icon: Radio },
     { to: "/calendar", label: "Content calendar", icon: CalendarDays },
     { to: "/connections", label: "Connections", icon: Plug },
   ]},
-  { label: "RESOURCES", items: [
+  { label: "MEASURE", items: [
+    { to: "/analytics", label: "Analytics", icon: ChartNoAxesCombined },
+    { to: "/growth", label: "Growth intelligence", icon: Compass },
+    { to: "/trends", label: "Trend & niche radar", icon: Activity },
+  ]},
+  { label: "SYSTEM", items: [
     { to: "/docs", label: "Documentation", icon: BookOpen },
+    { to: "/settings", label: "Settings", icon: Settings2 },
   ]},
 ];
 const titles: Record<string,string> = {
@@ -72,6 +68,8 @@ function App() {
   const input = useRef<HTMLInputElement>(null);
   const [assets,setAssets] = useState<MediaAsset[]>([]);
   const [health,setHealth] = useState<Health|null>(null);
+  const [metrics,setMetrics] = useState<StudioMetrics|null>(null);
+  const [readiness,setReadiness] = useState<Readiness|null>(null);
   const [busy,setBusy] = useState(false);
   const [notice,setNotice] = useState("");
   const [query,setQuery] = useState("");
@@ -84,6 +82,15 @@ function App() {
   async function refresh() {
     try { const [h,a] = await Promise.all([api.health(),api.assets()]); setHealth(h); setAssets(a); }
     catch { setHealth(null); }
+    // Metrics and readiness are separate calls: one failing must not blank the shell.
+    try {
+      const data = await api.metrics();
+      setMetrics(data && data.studio ? data : null);
+    } catch { setMetrics(null); }
+    try {
+      const data = await api.ready();
+      setReadiness(data && Array.isArray(data.checks) ? data : null);
+    } catch { setReadiness(null); }
   }
   useEffect(()=>{ void refresh(); },[]);
   useEffect(()=>{ const url=searchParams.get("url"); if(url) setSourceUrl(url); },[searchParams]);
@@ -153,20 +160,25 @@ function App() {
   const Empty = ({icon:Icon=Film,title:heading,copy,action}:{icon?:any;title:string;copy:string;action?:ReactNode}) => <div className="empty-panel"><div className="empty-icon"><Icon size={23}/></div><h3>{heading}</h3><p>{copy}</p>{action}</div>;
 
   function Dashboard(){
+    const exports = metrics?.studio?.exports;
+    const quality = metrics?.studio?.quality;
+    const inspected = quality ? quality.pass + quality.warn + quality.fail : 0;
+    const passRate = inspected && quality ? Math.round((quality.pass / inspected) * 100) : null;
     return page(<>
       <PageHeader eyebrow="YOUR CREATOR WORKSPACE" heading={<>Make every moment <em>worth watching.</em></>} description="One place to turn long-form footage into clips, publish everywhere and learn what works." action={<button className="button-primary" onClick={()=>navigate("/create")}><Plus size={16}/> Create clips</button>}/>
-      <div className="dashboard-grid">
-        <Glass className="welcome-card"><div className="welcome-copy"><span className="micro-label">START WITH A SOURCE</span><h2>Your next standout clip<br/>starts with a moment.</h2><p>Drop in a video link or upload footage. VYRALIS is designed to take it from source to social-ready content.</p><button className="button-primary" onClick={()=>navigate("/create")}>Open clip studio <ArrowUpRight size={15}/></button></div><div className="visual-stack"><div className="visual-orbit orbit-a"/><div className="visual-orbit orbit-b"/><div className="visual-core"><img src="/assets/vyralis-mark.svg" alt="VYRALIS"/></div><span className="float-chip chip-one"><AudioLines size={14}/> Moments</span><span className="float-chip chip-two"><Captions size={14}/> Captions</span></div></Glass>
-        <Glass className="quick-card"><div className="card-top"><div><span className="micro-label">QUICK CREATE</span><h3>Bring a video in</h3></div><Zap size={18}/></div><button className="quick-option" onClick={()=>navigate("/create")}><span className="quick-icon"><Link2 size={18}/></span><span><b>Paste a video link</b><small>YouTube · Twitch · Kick</small></span><ArrowUpRight size={16}/></button><button className="quick-option" onClick={()=>input.current?.click()}><span className="quick-icon"><Upload size={18}/></span><span><b>Upload from device</b><small>MP4, MOV, WebM and more</small></span><ArrowUpRight size={16}/></button><input ref={input} type="file" accept="video/*,audio/*" multiple hidden onChange={e=>void upload(e.target.files)}/></Glass>
+      <div className="dash-bento">
+        <Glass className="welcome-card dash-span-7"><div className="welcome-copy"><span className="micro-label">START WITH A SOURCE</span><h2>Your next standout clip<br/>starts with a moment.</h2><p>Drop in a video link or upload footage. VYRALIS takes it from source to a reviewed, captioned render.</p><button className="button-primary" onClick={()=>navigate("/create")}>Open clip studio <ArrowUpRight size={15}/></button></div><div className="visual-stack"><div className="visual-orbit orbit-a"/><div className="visual-orbit orbit-b"/><div className="visual-core"><img src="/assets/vyralis-mark.svg" alt="VYRALIS"/></div><span className="float-chip chip-one"><AudioLines size={13}/> Moments</span><span className="float-chip chip-two"><Captions size={13}/> Captions</span></div></Glass>
+        <Glass className="quick-card dash-span-5"><div className="card-top"><div><span className="micro-label">QUICK CREATE</span><h3>Bring a video in</h3></div><Zap size={18}/></div><button className="quick-option" onClick={()=>navigate("/create")}><span className="quick-icon"><Link2 size={17}/></span><span><b>Paste a video link</b><small>YouTube · Twitch · Kick</small></span><ArrowUpRight size={16}/></button><button className="quick-option" onClick={()=>input.current?.click()}><span className="quick-icon"><Upload size={17}/></span><span><b>Upload from device</b><small>MP4, MOV, WebM and more</small></span><ArrowUpRight size={16}/></button><input ref={input} type="file" accept="video/*,audio/*" multiple hidden onChange={e=>void upload(e.target.files)}/></Glass>
       </div>
       <div className="section-title"><div><span className="micro-label">AT A GLANCE</span><h2>Your workspace</h2></div><button className="text-button" onClick={()=>navigate("/projects")}>View projects <ArrowUpRight size={14}/></button></div>
-      <div className="metric-grid">
-        <Glass className="metric-card"><span>MEDIA ASSETS <Film size={15}/></span><strong>{assets.length}</strong><small>Files imported to this workspace</small></Glass>
-        <Glass className="metric-card"><span>STORAGE USED <HardDrive size={15}/></span><strong>{bytes(totalBytes)}</strong><small>Indexed local media</small></Glass>
-        <Glass className="metric-card"><span>PROCESSING ENGINE <Activity size={15}/></span><strong className="metric-status">{health?"Connected":"Offline"}</strong><small>{health?"Local API responding":"Start the backend to import media"}</small></Glass>
+      <div className="metric-strip">
+        <Glass className="metric-card"><span>MEDIA ASSETS <Film size={14}/></span><strong>{assets.length}</strong><small>Files imported to this workspace</small></Glass>
+        <Glass className="metric-card"><span>STORAGE USED <HardDrive size={14}/></span><strong>{bytes(totalBytes)}</strong><small>Indexed local media</small></Glass>
+        <Glass className="metric-card"><span>EXPORTS <Clapperboard size={14}/></span><strong>{exports ? exports.ready : "—"}</strong><small>{exports ? `${exports.total} requested · ${exports.active} running · ${exports.failed} failed` : "No render data from the engine yet"}</small></Glass>
+        <Glass className="metric-card"><span>QUALITY PASS <ShieldCheck size={14}/></span><strong>{passRate === null ? "—" : passRate + "%"}</strong><small>{quality && inspected ? `${quality.pass} pass · ${quality.warn} warn · ${quality.fail} fail` : "No render has been inspected yet"}</small></Glass>
       </div>
       <div className="section-title"><div><span className="micro-label">RECENT WORK</span><h2>Recently imported</h2></div><button className="text-button" onClick={()=>navigate("/projects")}>All media <ArrowUpRight size={14}/></button></div>
-      {assets.length ? <Glass className="asset-list">{assets.slice(0,5).map(a=><div className="asset-row" key={a.id}><div className="asset-art"><Film size={18}/></div><div className="asset-meta"><b>{a.filename}</b><small>{a.content_type||"Media"} · {bytes(a.size)}</small></div><span className="status-tag"><Check size={12}/> Imported</span></div>)}</Glass>:<Empty title="Your projects will show up here" copy="Import a video or paste a source link to start building your first project." action={<button className="button-secondary" onClick={()=>navigate("/create")}><Plus size={15}/> Start a project</button>}/>}
+      {assets.length ? <Glass className="asset-list">{assets.slice(0,5).map(a=><div className="asset-row" key={a.id}><div className="asset-art"><Film size={17}/></div><div className="asset-meta"><b>{a.filename}</b><small>{a.content_type||"Media"} · {bytes(a.size)}</small></div><span className="status-tag"><Check size={12}/> Imported</span></div>)}</Glass>:<Empty title="Your projects will show up here" copy="Import a video or paste a source link to start building your first project." action={<button className="button-secondary" onClick={()=>navigate("/create")}><Plus size={15}/> Start a project</button>}/>}
     </>);
   }
 
@@ -195,7 +207,19 @@ function App() {
   function Canvas(){const [selected,setSelected]=useState("Script");const nodes=[{name:"Brief",type:"INPUT",desc:"Topic, niche, audience and brand voice"},{name:"Research",type:"INTELLIGENCE",desc:"Sources, facts, trends and references"},{name:"Script",type:"TEXT",desc:"Hook, narration, scene beats and CTA"},{name:"Visuals",type:"IMAGE / VIDEO",desc:"Scene illustrations, b-roll and motion"},{name:"Voice",type:"AUDIO",desc:"Narration, voice style and timing"},{name:"Compose",type:"RENDER",desc:"Captions, framing, music and export"}];return page(<><PageHeader eyebrow="CREATIVE WORKFLOW CANVAS" heading={<>Connect ideas to <em>finished content.</em></>} description="A node-based creative pipeline inspired by modern generative media canvases. Build repeatable workflows without leaving VYRALIS."/><div className="canvas-toolbar"><span className="editor-pill">WORKFLOW / STORY TO SHORT</span><button className="button-secondary" onClick={()=>setSelected("Script")}>Reset selection</button><span className="feature-state">CANVAS PREVIEW</span></div><Glass className="canvas-board"><div className="canvas-grid">{nodes.map((n,i)=><button className={"canvas-node "+(selected===n.name?"selected":"")} key={n.name} onClick={()=>setSelected(n.name)}><span className="node-index">{String(i+1).padStart(2,"0")} · {n.type}</span><b>{n.name}</b><small>{n.desc}</small><span className="node-port"/>{i<nodes.length-1&&<span className="node-link"/>}</button>)}</div></Glass><div className="canvas-detail"><Glass className="canvas-detail-card"><span className="micro-label">SELECTED NODE</span><h3>{selected}</h3><p>{nodes.find(n=>n.name===selected)?.desc}. Each node will expose provider settings, inputs, outputs, retries and previewable results when the execution engine is connected.</p><span className="feature-state">WORKFLOW ENGINE NOT CONNECTED</span></Glass><Glass className="canvas-detail-card"><span className="micro-label">PLANNED MODEL ADAPTERS</span><p>Text and research · Image generation · Video generation · Voice and sound · FFmpeg composition · Caption and translation.</p><p>Provider selection will be capability-based, with model availability, cost estimates and licensing checked before execution.</p></Glass></div><div className="integration-note"><Network size={16}/><div><b>Reusable workflow templates</b><p>Save a workflow once, then apply it to a new topic, uploaded recording or source link. Execution, autosave and model-provider connections are future backend work; this canvas is currently an interactive interface preview.</p></div></div></>);}
   function Brand(){return page(<><PageHeader eyebrow="BRAND STUDIO" heading={<>Make every frame <em>feel like you.</em></>} description="Keep your visual identity consistent across captions, overlays and exports."/><div className="brand-layout"><Glass className="brand-preview"><span className="micro-label">BRAND PREVIEW</span><div className="brand-swatch"><img src="/assets/vyralis-mark.svg" alt="VYRALIS mark"/><div><b>Your brand identity</b><small>Preview canvas · 9:16</small></div></div><div className="swatches"><span/><span/><span/><span/></div><p>VYRALIS palette · Midnight · Violet · Electric blue · Cyan</p></Glass><Glass className="brand-options"><h3>Brand assets</h3>{[{icon:Palette,label:"Color palette",detail:"Primary and accent colors"},{icon:Captions,label:"Caption presets",detail:"Typography and emphasis styles"},{icon:Layers3,label:"Logo & watermark",detail:"Brand marks and safe placement"},{icon:Video,label:"Intro & outro",detail:"Reusable motion templates"}].map(x=><div className="brand-option" key={x.label}><x.icon size={18}/><div><b>{x.label}</b><small>{x.detail}</small></div><span className="feature-state">COMING</span></div>)}</Glass></div></>);}
 
-  function Settings(){return page(<><PageHeader eyebrow="PREFERENCES" heading={<>Your studio, <em>your setup.</em></>} description="Manage workspace preferences, processing mode and connected services."/><div className="settings-stack"><Glass className="settings-card"><div><h3>Processing status</h3><p>Local engine connection and available capabilities.</p></div><span className={health?"status-tag":"status-tag muted"}>{health?"Connected":"Offline"}</span><button className="button-secondary" onClick={()=>void refresh()}>Refresh status</button></Glass><Glass className="settings-card"><div><h3>Processing engines</h3><p>FFmpeg · WhisperX / faster-whisper · PySceneDetect · MediaPipe / YOLO · Remotion</p><small>FFmpeg with libass, faster-whisper and FFprobe run on this host; scene detection, MediaPipe and Remotion are still targets.</small></div><span className="feature-state">PARTIAL</span></Glass><Glass className="settings-card"><div><h3>Source adapters</h3><p>YouTube · Twitch · Kick · Local media</p><small>Links resolve through yt-dlp with a host allowlist, rights attestation and duration caps; local uploads stream through FFprobe validation.</small></div><span className="feature-state">LIVE</span></Glass><Glass className="settings-card"><div><h3>Connected channels</h3><p>Authorise YouTube, TikTok, Instagram or X so the studio can read your real account numbers.</p><small>Tokens are encrypted at rest and can be removed at any time.</small></div><Link className="button-secondary" to="/connections">Open connections</Link></Glass><Glass className="settings-card"><div><h3>Workspace storage</h3><p>{assets.length} assets · {bytes(totalBytes)} indexed locally</p></div><span className="editor-pill">Local</span></Glass></div></>);}
+  function Settings(){return page(<><PageHeader eyebrow="PREFERENCES" heading={<>Your studio, <em>your setup.</em></>} description="Manage workspace preferences, processing mode and connected services."/>
+    <div className="settings-stack">
+      <Glass className="engine-panel">
+        <div className="engine-panel-head"><div><h3>Engine readiness</h3><small>Live checks from <code>/api/ready</code> — the same probe a deploy monitor uses.</small></div><button className="button-secondary" onClick={()=>void refresh()}>Re-run checks</button></div>
+        {readiness ? readiness.checks.map(check=><div key={check.id} className={"engine-check"+(check.ok?" ok":"")}><i/><b>{check.id}</b><span>{check.detail}</span></div>) : <div className="engine-check"><i/><b>engine</b><span>No readiness response. Start the local engine or sign in with the workspace credentials.</span></div>}
+        <div className="engine-foot"><span>{readiness ? (readiness.ready ? "Required checks passing" : "Required checks failing — rendering is not safe") : "Readiness unavailable"}</span><span>{health ? "ENGINE ONLINE" : "ENGINE OFFLINE"}</span></div>
+      </Glass>
+      <Glass className="settings-card"><div><h3>Processing status</h3><p>Local engine connection and available capabilities.</p></div><span className={health?"status-tag":"status-tag muted"}>{health?"Connected":"Offline"}</span><button className="button-secondary" onClick={()=>void refresh()}>Refresh status</button></Glass>
+      <Glass className="settings-card"><div><h3>Processing engines</h3><p>FFmpeg · faster-whisper · FFprobe</p><small>FFmpeg with libass, faster-whisper and FFprobe run on this host; scene detection, face tracking and Remotion remain optional extras.</small></div><span className="feature-state">LIVE</span></Glass>
+      <Glass className="settings-card"><div><h3>Source adapters</h3><p>YouTube · Twitch · Kick · Local media</p><small>Links resolve through yt-dlp with a host allowlist, rights attestation and duration caps; local uploads stream through FFprobe validation.</small></div><span className="feature-state">LIVE</span></Glass>
+      <Glass className="settings-card"><div><h3>Connected channels</h3><p>Authorise YouTube, TikTok, Instagram or X so the studio can read your real account numbers.</p><small>Tokens are encrypted at rest and can be removed at any time.</small></div><Link className="button-secondary" to="/connections">Open connections</Link></Glass>
+      <Glass className="settings-card"><div><h3>Workspace storage</h3><p>{assets.length} assets · {bytes(totalBytes)} indexed locally</p></div><span className="editor-pill">Local</span></Glass>
+    </div></>);}
 
   if (location.pathname === "/") return <LandingPage/>;
 

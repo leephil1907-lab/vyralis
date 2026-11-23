@@ -54,6 +54,8 @@ export type ConnectionProvider = {
   accounts: ConnectedAccount[];
 };
 export type ConnectionList = { providers: ConnectionProvider[]; generated_at: string };
+export type ReadinessCheck = { id: string; ok: boolean; detail: string };
+export type Readiness = { ready: boolean; checks: ReadinessCheck[]; generated_at: string };
 export type StudioMetrics = {
   studio: {
     assets: number;
@@ -84,6 +86,7 @@ export const api = {
   syncConnection: (accountId: string) => request<ConnectedAccount>(`/api/connections/${accountId}/sync`, { method: "POST" }),
   disconnectConnection: (accountId: string) => request<{ disconnected: string; platform: string }>(`/api/connections/${accountId}`, { method: "DELETE" }),
   metrics: () => request<StudioMetrics>("/api/metrics"),
+  ready: () => request<Readiness>("/api/ready"),
   assets: () => request<MediaAsset[]>("/api/assets"),
   upload: (file: File) => {
     const body = new FormData();

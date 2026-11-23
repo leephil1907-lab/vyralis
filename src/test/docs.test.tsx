@@ -52,9 +52,37 @@ describe("landing page", () => {
     expect(screen.getByRole("heading", { level: 1, name: /Creativity/i })).toBeInTheDocument();
     expect(screen.getByLabelText("Paste a video link")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Start clipping/i })).toBeInTheDocument();
-    // Docs must be an internal page now, not a raw .md link on GitHub.
-    const docsLinks = screen.getAllByRole("link", { name: "Docs" });
-    expect(docsLinks.some((link) => link.getAttribute("href") === "/docs")).toBe(true);
+  });
+
+  it("keeps documentation behind an internal Resources menu", async () => {
+    const user = (await import("@testing-library/user-event")).default.setup();
+    render(<MemoryRouter><LandingPage /></MemoryRouter>);
+    await user.click(screen.getByRole("button", { name: /Resources/i }));
+    const menu = await screen.findByRole("button", { name: /Resources/i });
+    const panel = menu.closest("li")?.querySelector(".vy-dropdown");
+    expect(panel).not.toBeNull();
+    expect(within(panel as HTMLElement).getByRole("link", { name: /Documentation/i })).toHaveAttribute("href", "/docs");
+    expect(within(panel as HTMLElement).getByRole("link", { name: /Deployment runbook/i })).toHaveAttribute("href", "/docs/deployment-runbook");
+  });
+
+  it("carries every section the navigation promises", () => {
+    const { container } = render(<MemoryRouter><LandingPage /></MemoryRouter>);
+    for (const id of ["signature", "workflow", "capabilities", "studio", "pricing", "roadmap", "faq"]) {
+      expect(container.querySelector(`#${id}`), `missing #${id}`).not.toBeNull();
+    }
+    expect(screen.getByRole("heading", { level: 2, name: /Self-hosted/i })).toBeInTheDocument();
+    expect(screen.getByText(/no fake checkout/i)).toBeInTheDocument();
+    expect(container.querySelectorAll("details.vy-faq-item")).toHaveLength(6);
+  });
+
+  it("lets the signature timeline be operated from the keyboard", async () => {
+    const user = (await import("@testing-library/user-event")).default.setup();
+    render(<MemoryRouter><LandingPage /></MemoryRouter>);
+    const slider = screen.getByRole("slider", { name: /Sample project timeline/i });
+    const before = Number(slider.getAttribute("aria-valuenow"));
+    slider.focus();
+    await user.keyboard("{ArrowRight}");
+    expect(Number(slider.getAttribute("aria-valuenow"))).toBeGreaterThan(before);
   });
 
   it("rejects a value that is not a URL instead of navigating", async () => {
