@@ -181,7 +181,7 @@
 .vy-marquee{border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin-top:clamp(40px,5vw,68px);overflow:hidden;background:rgba(255,252,245,.44)}
 .vy-marquee-track{display:flex;width:max-content;animation:vy-scroll 34s linear infinite}
 .vy-marquee-group{display:flex;align-items:center;gap:38px;padding:14px 19px 14px 38px}
-.vy-marquee span{font:500 11px/1 var(--label);letter-spacing:2.6px;text-transform:uppercase;color:#8A7597;white-space:nowrap}
+.vy-marquee span{display:inline-flex;align-items:center;gap:14px;font:500 11px/1 var(--label);letter-spacing:2.6px;text-transform:uppercase;color:#8A7597;white-space:nowrap}
 .vy-marquee i{color:var(--coral);font-style:normal;font-size:12px}
 @keyframes vy-scroll{to{transform:translateX(-50%)}}
 .vy-site[data-motion="reduced"] .vy-marquee-track{animation:none}
@@ -398,6 +398,10 @@
   .vy-tile-wide{grid-column:2/3;grid-row:1/2;min-height:160px}
   .vy-collage .vy-tile:nth-child(3){grid-column:2/3;grid-row:2/3;min-height:160px}
   .vy-collage .vy-tile:nth-child(4){grid-column:1/3;grid-row:3/4;min-height:210px}
+}
+@media (max-width:460px){
+  .vy-nav-right .vy-btn{display:none}
+  .vy-announce{font-size:10px}
 }
 @media (max-width:620px){
   .vy-hero h1{font-size:clamp(44px,12.5vw,64px)}
