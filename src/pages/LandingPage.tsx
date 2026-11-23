@@ -1,28 +1,27 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
 import {
-  ArrowRight, ArrowUpRight, AudioLines, ChartNoAxesCombined,
-  Clapperboard, Film, Layers3, Link2, ListChecks, Menu, Network, Palette, Play,
-  Compass, Radio, RotateCcw, Scissors, ShieldCheck, Sparkles, Upload, X,
+  ArrowRight, ArrowUpRight, AudioLines, ChartNoAxesCombined, Check,
+  ChevronDown, Clapperboard, Compass, Film, Layers3, Link2, ListChecks,
+  Menu, Network, Palette, Play, Plus, Radio, RotateCcw, Scissors,
+  ShieldCheck, Sparkles, Upload, X,
 } from "lucide-react";
 import "../landing.css";
 
 const navLinks = [
-  { label: "Workflow", href: "#workflow" },
+  { label: "Pipeline", href: "#workflow" },
   { label: "Capabilities", href: "#capabilities" },
   { label: "Studio", href: "#studio" },
-  { label: "Roadmap", href: "#roadmap" },
+  { label: "Pricing", href: "#pricing" },
 ];
 
-// Documents live in the app now, at /docs/<slug>, so the marketing site can link
-// straight into them instead of opening raw markdown on GitHub.
-const docLinks = [
-  { label: "Feature registry", slug: "feature-registry" },
-  { label: "Architecture", slug: "architecture" },
-  { label: "Security & privacy", slug: "security-and-privacy" },
-  { label: "Deployment runbook", slug: "deployment-runbook" },
+const resourceLinks = [
+  { label: "Documentation", copy: "Every document, in the app", to: "/docs" },
+  { label: "Feature registry", copy: "What is live, limited or planned", to: "/docs/feature-registry" },
+  { label: "Deployment runbook", copy: "Docker and the Render setup", to: "/docs/deployment-runbook" },
+  { label: "Connecting accounts", copy: "OAuth apps and redirect URIs", to: "/docs/oauth-setup" },
 ];
 
 const pipeline = [
@@ -113,12 +112,53 @@ const roadmap = [
   },
 ];
 
-const principles = [
-  { n: "01", title: "Real workflows, not demo screens", copy: "If a surface is not connected end to end, it says so on the screen." },
-  { n: "02", title: "Creator approval by default", copy: "Nothing renders, publishes or overwrites without your say." },
-  { n: "03", title: "Evidence, not virality promises", copy: "Scores show their reasons, their weights and their limits." },
-  { n: "04", title: "Authorized integrations only", copy: "Official APIs, explicit scopes and access you can revoke." },
+const ledger = [
+  { term: "Runs on", detail: "Your machine or your own server", note: "FFmpeg, FFprobe and faster-whisper do the work locally" },
+  { term: "Exports", detail: "9:16 · 1:1 · 16:9", note: "H.264/AAC with burned captions, hook and reframing" },
+  { term: "Sidecars", detail: "SRT · VTT · ASS", note: "Word-timed, in clean, karaoke and impact styles" },
+  { term: "Quality report", detail: "Measured, not claimed", note: "Duration, dimensions, codecs, black and frozen frames, loudness" },
+  { term: "Accounts", detail: "YouTube · TikTok · Instagram · X", note: "Real OAuth with your own provider apps; nothing simulated" },
+  { term: "Data", detail: "Stays on the host", note: "SQLite on disk, tokens encrypted at rest, no third-party upload" },
 ];
+
+const faqs = [
+  {
+    q: "Does my footage get uploaded anywhere?",
+    a: "No. Media is written to the host running the studio. Imports, transcription, ranking and rendering all happen there, and the only outbound requests are the ones you start: resolving a source link, or an OAuth call to a platform you connected.",
+  },
+  {
+    q: "What does the score actually mean?",
+    a: "It is a transcript heuristic with a visible breakdown: hook strength, context completeness, speech density and payoff signal. It is a way to order candidates for review, not a virality prediction, and the interface says so wherever the number appears.",
+  },
+  {
+    q: "Can it post to TikTok or YouTube for me?",
+    a: "Not yet. Account connections are real — OAuth, encrypted tokens, live account metrics — but publishing needs approved platform apps and a posting adapter, so the studio stops at validated packaging and an approved delivery package. It will not pretend a post went out.",
+  },
+  {
+    q: "Which sources can I import?",
+    a: "Local files (MP4, MOV, MKV, WebM, AVI) and eligible public YouTube, Twitch and Kick links through yt-dlp, with a host allowlist and a rights confirmation. Region locks, age gates and provider restrictions can still block an import, and the job reports why.",
+  },
+  {
+    q: "Is there a subscription?",
+    a: "No. The studio is self-hosted and there is no billing layer anywhere in the code. If a hosted version ever ships, it will be priced and stated here first — you will not find a fake checkout on this site.",
+  },
+  {
+    q: "Who owns the clips I make?",
+    a: "You do — subject to your rights in the source footage. The studio asks you to confirm you own or have permission to clip the material, and it does not strip attribution or quietly re-upload anything.",
+  },
+];
+
+const SAMPLE = {
+  clips: [
+    { start: 6, end: 34, score: 86, label: "Hook" },
+    { start: 41, end: 62, score: 74, label: "Story" },
+    { start: 68, end: 90, score: 61, label: "Payoff" },
+  ],
+  words: [
+    "So we", "shipped", "the", "first", "version", "on", "a", "Friday,", "and",
+    "nobody", "expected", "what", "happened", "next.",
+  ],
+};
 
 function Reveal({ children, delay = 0, className = "" }: { children: ReactNode; delay?: number; className?: string }) {
   return (
@@ -138,22 +178,212 @@ function Brand({ onClick }: { onClick?: () => void }) {
   return (
     <a className="vy-brand" href="#top" onClick={onClick} aria-label="VYRALIS Studio home">
       <img src="/assets/vyralis-mark.svg" alt="" />
-      <span>
-        <b>VYRALIS</b>
-        <small>STUDIO</small>
-      </span>
+      <span>VYRALIS<small>Studio</small></span>
     </a>
+  );
+}
+
+/* ---------------------------------------------------------------- signature
+   The scrubber is the one memorable interaction on the page. It is a real
+   timeline over a sample project: dragging or using the arrow keys moves the
+   playhead, and the phone preview follows with the spoken words highlighted.
+   The sample label is deliberate — these numbers are a demo, not a promise.
+   -------------------------------------------------------------------------- */
+function TimelineScrubber() {
+  const [position, setPosition] = useState(43);
+  const [dragging, setDragging] = useState(false);
+  const track = useRef<HTMLDivElement>(null);
+
+  const at = useCallback((clientX: number) => {
+    const box = track.current?.getBoundingClientRect();
+    if (!box) return;
+    const pct = ((clientX - box.left) / box.width) * 100;
+    setPosition(Math.min(99, Math.max(1, pct)));
+  }, []);
+
+  useEffect(() => {
+    if (!dragging) return;
+    const move = (event: PointerEvent) => at(event.clientX);
+    const stop = () => setDragging(false);
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", stop);
+    return () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", stop);
+    };
+  }, [dragging, at]);
+
+  const activeIndex = Math.min(
+    SAMPLE.words.length - 1,
+    Math.floor((position / 100) * SAMPLE.words.length),
+  );
+  const clip = SAMPLE.clips.find((c) => position >= c.start && position <= c.end) ?? SAMPLE.clips[0];
+  const stamp = (pct: number) => {
+    const total = 108;
+    const seconds = Math.round((pct / 100) * total);
+    return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
+  };
+
+  return (
+    <div className="vy-scrub">
+      <div className="vy-timeline">
+        <div className="vy-tl-top">
+          <b>Sample project · “Launch week, raw”</b>
+          <span>{stamp(position)} / 01:48</span>
+        </div>
+        <div
+          className="vy-tl-track"
+          ref={track}
+          role="slider"
+          tabIndex={0}
+          aria-label="Sample project timeline"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.round(position)}
+          aria-valuetext={`${stamp(position)} — caption: ${SAMPLE.words[activeIndex]}`}
+          onPointerDown={(event) => { setDragging(true); at(event.clientX); }}
+          onKeyDown={(event) => {
+            const step = event.shiftKey ? 10 : 3;
+            if (event.key === "ArrowRight" || event.key === "ArrowUp") {
+              event.preventDefault(); setPosition((p) => Math.min(99, p + step));
+            } else if (event.key === "ArrowLeft" || event.key === "ArrowDown") {
+              event.preventDefault(); setPosition((p) => Math.max(1, p - step));
+            } else if (event.key === "Home") {
+              event.preventDefault(); setPosition(1);
+            } else if (event.key === "End") {
+              event.preventDefault(); setPosition(99);
+            }
+          }}
+        >
+          {SAMPLE.clips.map((c) => (
+            <div
+              key={c.label}
+              className="vy-tl-clip"
+              style={{ left: `${c.start}%`, width: `${c.end - c.start}%` }}
+            >
+              <span>{c.label}</span>
+              <div className="vy-tl-clip-wave" />
+            </div>
+          ))}
+          <div className="vy-tl-playhead" style={{ left: `${position}%` }} />
+        </div>
+        <div className="vy-tl-scale">
+          {[0, 25, 50, 75, 100].map((tick) => <span key={tick}>{stamp(tick)}</span>)}
+        </div>
+        <div className="vy-tl-words" aria-hidden="true">
+          {SAMPLE.words.map((word, index) => (
+            <span key={word + index} className={"vy-tl-word" + (index === activeIndex ? " on" : "")}>{word}</span>
+          ))}
+        </div>
+        <p className="vy-tl-hint">
+          Drag the playhead, or focus it and use the arrow keys. The caption follows the spoken
+          word, exactly as it does in the studio.
+        </p>
+      </div>
+
+      <div>
+        <div className="vy-phone">
+          <div className="vy-phone-screen">
+            <div className="vy-phone-frame" aria-hidden="true" />
+            <span className="vy-phone-hook">Nobody expected this</span>
+            <span className="vy-phone-caption">{SAMPLE.words.slice(Math.max(0, activeIndex - 2), activeIndex + 2).join(" ")}</span>
+            <div className="vy-phone-meta">
+              <span className="vy-phone-chip">9:16</span>
+              <span className="vy-phone-chip">Karaoke</span>
+              <span className="vy-phone-chip">Score {clip.score}</span>
+            </div>
+          </div>
+        </div>
+        <p className="vy-scrub-note">
+          <Sparkles size={13} style={{ marginTop: 2, flex: "none" }} />
+          Sample timeline from a demo project, not a claim about your footage.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function ProductFrame() {
+  return (
+    <div className="vy-product" aria-hidden="true">
+      <div className="vy-product-bar">
+        <i /><i /><i />
+        <span>Interface preview</span>
+      </div>
+      <div className="vy-product-body">
+        {candidates.map((c) => (
+          <div className="vy-prod-row" key={c.title}>
+            <div className="vy-prod-thumb" />
+            <div className="vy-prod-meta">
+              <b>{c.title}</b>
+              <small>{c.time}</small>
+            </div>
+            <span className="vy-prod-score">{c.score}</span>
+          </div>
+        ))}
+        <div className="vy-prod-export">
+          <Check size={12} /> 9:16 · captions burned in · QC <em>pass</em>
+        </div>
+        <p className="vy-prod-note"><ShieldCheck size={11} /> Rendered locally · quality report attached</p>
+      </div>
+    </div>
   );
 }
 
 export default function LandingPage() {
   const [menu, setMenu] = useState(false);
+  const [resources, setResources] = useState(false);
+  const [stuck, setStuck] = useState(false);
   const [link, setLink] = useState("");
   const [linkError, setLinkError] = useState("");
   const navigate = useNavigate();
+  const resourcesRef = useRef<HTMLLIElement>(null);
 
-  // A landing-page submission is a real handoff, not a demo: the studio opens
-  // with the URL filled in and the rights confirmation still required.
+  useEffect(() => {
+    document.body.style.overflow = menu ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [menu]);
+
+  useEffect(() => {
+    // The studio shell paints html/body near-black. While the public site is
+    // mounted, the document itself has to be cream or overscroll shows dark.
+    const root = document.documentElement;
+    const previous = {
+      html: root.style.background,
+      body: document.body.style.background,
+      scheme: root.style.colorScheme,
+    };
+    root.style.background = "#FAF5E9";
+    document.body.style.background = "#FAF5E9";
+    root.style.colorScheme = "light";
+    return () => {
+      root.style.background = previous.html;
+      document.body.style.background = previous.body;
+      root.style.colorScheme = previous.scheme;
+    };
+  }, []);
+
+  useEffect(() => {
+    const onScroll = () => setStuck(window.scrollY > 90);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => {
+    if (!resources) return;
+    const click = (event: MouseEvent) => {
+      if (!resourcesRef.current?.contains(event.target as Node)) setResources(false);
+    };
+    const key = (event: KeyboardEvent) => { if (event.key === "Escape") setResources(false); };
+    document.addEventListener("mousedown", click);
+    document.addEventListener("keydown", key);
+    return () => {
+      document.removeEventListener("mousedown", click);
+      document.removeEventListener("keydown", key);
+    };
+  }, [resources]);
+
   function startFromLink(event: React.FormEvent) {
     event.preventDefault();
     const value = link.trim();
@@ -168,42 +398,51 @@ export default function LandingPage() {
     navigate(`/create?url=${encodeURIComponent(value)}&focus=url`);
   }
 
-  useEffect(() => {
-    const root = document.documentElement;
-    const previousScroll = root.style.scrollBehavior;
-    const previousRootBg = root.style.backgroundColor;
-    const previousBodyBg = document.body.style.backgroundColor;
-    root.style.scrollBehavior = "smooth";
-    root.style.backgroundColor = "#FBF6EA";
-    document.body.style.backgroundColor = "#FBF6EA";
-    return () => {
-      root.style.scrollBehavior = previousScroll;
-      root.style.backgroundColor = previousRootBg;
-      document.body.style.backgroundColor = previousBodyBg;
-    };
-  }, []);
-
-  useEffect(() => {
-    document.body.style.overflow = menu ? "hidden" : "";
-    return () => { document.body.style.overflow = ""; };
-  }, [menu]);
+  const year = new Date().getFullYear();
 
   return (
     <div className="vy-site" id="top">
       <div className="vy-announce">
         <span>
           <i className="vy-dot" /> <b>Studio 0.3</b> — the local clipping pipeline is live: import, transcribe, rank, review, render, package.
-          <a href="/studio">Open the studio <ArrowUpRight size={11} style={{ display: "inline", verticalAlign: "-1px" }} /></a>
+          <Link to="/studio">Open the studio <ArrowUpRight size={11} style={{ display: "inline", verticalAlign: "-1px" }} /></Link>
         </span>
       </div>
 
-      <div className="vy-nav-wrap">
+      <div className={"vy-nav-wrap" + (stuck ? " is-stuck" : "")}>
         <div className="vy-shell">
           <nav className="vy-nav" aria-label="Primary">
             <Brand />
             <ul className="vy-nav-links">
               {navLinks.map((l) => <li key={l.href}><a href={l.href}>{l.label}</a></li>)}
-              <li><Link to="/docs">Docs</Link></li>
+              <li className="vy-has-menu" ref={resourcesRef}>
+                <button
+                  type="button"
+                  aria-expanded={resources}
+                  aria-haspopup="true"
+                  onClick={() => setResources((v) => !v)}
+                >
+                  Resources <ChevronDown size={13} />
+                </button>
+                <AnimatePresence>
+                  {resources && (
+                    <motion.div
+                      className="vy-dropdown"
+                      initial={{ opacity: 0, y: -6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -6 }}
+                      transition={{ duration: 0.16 }}
+                    >
+                      {resourceLinks.map((item) => (
+                        <Link key={item.to} to={item.to} onClick={() => setResources(false)}>
+                          <b>{item.label}</b>
+                          <small>{item.copy}</small>
+                        </Link>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </li>
             </ul>
             <div className="vy-nav-right">
               <span className="vy-nav-status"><i />Local-first</span>
@@ -233,7 +472,12 @@ export default function LandingPage() {
               {navLinks.map((l) => (
                 <a className="vy-mobile-link" key={l.href} href={l.href} onClick={() => setMenu(false)}>{l.label}</a>
               ))}
-              <Link className="vy-mobile-link" to="/docs" onClick={() => setMenu(false)}>Docs</Link>
+              <div className="vy-mobile-sub">Resources</div>
+              {resourceLinks.map((item) => (
+                <Link className="vy-mobile-link" key={item.to} to={item.to} onClick={() => setMenu(false)}>
+                  {item.label}
+                </Link>
+              ))}
               <Link className="vy-btn vy-btn-primary" to="/studio" onClick={() => setMenu(false)}>
                 Open the studio <ArrowRight size={15} />
               </Link>
@@ -243,73 +487,70 @@ export default function LandingPage() {
       </AnimatePresence>
 
       <header className="vy-hero">
-        <div className="vy-hero-glow" aria-hidden="true" />
         <div className="vy-shell">
           <div className="vy-hero-grid">
-            <div>
+            <div className="vy-hero-copy">
               <Reveal>
                 <span className="vy-eyebrow"><i className="vy-dot" />Video studio · local-first processing</span>
               </Reveal>
-              <Reveal delay={0.06}>
+              <Reveal delay={0.05}>
                 <h1 className="vy-display">
                   <span className="vy-hero-line">Creativity</span>
                   <span className="vy-hero-line">in <em>Motion.</em></span>
                 </h1>
               </Reveal>
+              <Reveal delay={0.1}>
+                <p className="vy-lede">
+                  Turn long recordings into ranked, reviewable, social-ready clips — transcribed,
+                  explained and rendered on your own machine.
+                </p>
+              </Reveal>
+              <Reveal delay={0.14}>
+                <form className="vy-quickstart" onSubmit={startFromLink}>
+                  <Link2 size={15} />
+                  <input
+                    value={link}
+                    onChange={(e) => { setLink(e.target.value); setLinkError(""); }}
+                    placeholder="Paste a YouTube, Twitch or Kick link"
+                    aria-label="Paste a video link"
+                    inputMode="url"
+                  />
+                  <button className="vy-btn vy-btn-primary vy-btn-sm" type="submit">
+                    Start clipping <ArrowRight size={13} />
+                  </button>
+                </form>
+                {linkError && <p className="vy-quickstart-error">{linkError}</p>}
+              </Reveal>
+              <Reveal delay={0.18}>
+                <div className="vy-hero-actions">
+                  <Link className="vy-btn vy-btn-ghost" to="/studio">
+                    Open the studio <ArrowUpRight size={15} />
+                  </Link>
+                  <a className="vy-link" href="#signature">See the workspace <ArrowUpRight size={14} /></a>
+                </div>
+              </Reveal>
+              <Reveal delay={0.22}>
+                <div className="vy-hero-facts">
+                  <span className="vy-fact"><Clapperboard size={12} /> MP4 · MOV · WebM</span>
+                  <span className="vy-fact"><Film size={12} /> 9:16 export</span>
+                  <span className="vy-fact"><ShieldCheck size={12} /> No sign-up</span>
+                </div>
+              </Reveal>
             </div>
-            <Reveal delay={0.14} className="vy-hero-right">
-              <p className="vy-lede">
-                VYRALIS Studio turns long recordings into ranked, reviewable, social-ready clips —
-                transcribed, explained and rendered on your own machine.
-              </p>
-              <form className="vy-quickstart" onSubmit={startFromLink}>
-                <Link2 size={15} />
-                <input
-                  value={link}
-                  onChange={(e) => { setLink(e.target.value); setLinkError(""); }}
-                  placeholder="Paste a YouTube, Twitch or Kick link"
-                  aria-label="Paste a video link"
-                  inputMode="url"
-                />
-                <button className="vy-btn vy-btn-primary vy-btn-sm" type="submit">
-                  Start clipping <ArrowRight size={13} />
-                </button>
-              </form>
-              {linkError && <p className="vy-quickstart-error">{linkError}</p>}
-              <div className="vy-hero-actions">
-                <Link className="vy-btn vy-btn-primary" to="/studio">
-                  Open the studio <ArrowRight size={15} />
-                </Link>
-                <a className="vy-link" href="#workflow">See the pipeline <ArrowUpRight size={14} /></a>
-              </div>
-              <div className="vy-hero-facts">
-                <span className="vy-fact"><Clapperboard size={12} /> MP4 · MOV · WebM</span>
-                <span className="vy-fact"><Film size={12} /> 9:16 export</span>
-                <span className="vy-fact"><ShieldCheck size={12} /> No sign-up</span>
-              </div>
+
+            <Reveal delay={0.12} className="vy-hero-media">
+              <ProductFrame />
             </Reveal>
           </div>
 
-          <Reveal delay={0.1}>
-            <div className="vy-collage">
-              <figure className="vy-tile vy-tile-tall" style={{ margin: 0 }}>
-                <img src="/assets/landing/shapes-hero.webp" alt="Soft 3D clay shapes in lilac, coral and pale blue" loading="eager" />
-                <a className="vy-play" href="/studio" aria-label="Open the studio and review clips">
-                  <Play size={20} fill="currentColor" strokeWidth={0} />
-                </a>
-                <span className="vy-tile-badge"><Sparkles size={10} /> The studio</span>
-              </figure>
-
-              <figure className="vy-tile vy-tile-wide" style={{ margin: 0 }}>
-                <img src="/assets/landing/torus.webp" alt="Glossy pastel rings knotted together" loading="lazy" />
-                <figcaption>Motion, modeled</figcaption>
-              </figure>
-
+          <Reveal delay={0.08}>
+            <div className="vy-shelf">
               <figure className="vy-tile" style={{ margin: 0 }}>
-                <img src="/assets/landing/ribbon.webp" alt="Coral and tangerine ribbon petals" loading="lazy" />
-                <figcaption>Every frame, in rhythm</figcaption>
+                <img src="/assets/landing/shapes-hero.webp" alt="Soft 3D clay shapes in lilac, coral and pale blue" loading="eager" />
               </figure>
-
+              <figure className="vy-tile" style={{ margin: 0 }}>
+                <img src="/assets/landing/torus.webp" alt="Glossy pastel rings knotted together" loading="lazy" />
+              </figure>
               <div className="vy-tile vy-tile-quote">
                 <span className="vy-quote-mark" aria-hidden="true">“</span>
                 <p>Every moment has a story. We help you find the ones worth cutting.</p>
@@ -332,6 +573,26 @@ export default function LandingPage() {
         </div>
       </header>
 
+      <section className="vy-sheet" id="signature">
+        <div className="vy-shell">
+          <div className="vy-sheet-head">
+            <div>
+              <Reveal><span className="vy-eyebrow"><i className="vy-dot" />The workspace</span></Reveal>
+              <Reveal delay={0.05}>
+                <h2 className="vy-h2">Drag the timeline.<br />Watch the caption land.</h2>
+              </Reveal>
+            </div>
+            <Reveal delay={0.1}>
+              <p className="vy-lede">
+                Word timings are not decoration here — they drive the cut, the caption and the
+                export. Scrub this sample and you are looking at the same surface the studio gives you.
+              </p>
+            </Reveal>
+          </div>
+          <Reveal delay={0.08}><TimelineScrubber /></Reveal>
+        </div>
+      </section>
+
       <section className="vy-section" id="workflow">
         <div className="vy-shell">
           <div className="vy-section-head">
@@ -352,14 +613,14 @@ export default function LandingPage() {
           <Reveal>
             <div className="vy-pipeline-card">
               <div className="vy-pipeline-top">
-                <span className="vy-micro"><i />Working foundation · Studio 0.2</span>
+                <span className="vy-micro"><i />Working foundation · Studio 0.3</span>
                 <span className="vy-chip vy-chip-live"><Play size={9} fill="currentColor" strokeWidth={0} />Live today</span>
               </div>
               <div className="vy-steps">
                 {pipeline.map((step, i) => (
-                  <div className={"vy-step " + (step.status === "live" ? "vy-step-live" : "")} key={step.title}>
+                  <div className="vy-step" key={step.title}>
                     <div className="vy-step-num">STEP {String(i + 1).padStart(2, "0")}</div>
-                    <div className="vy-step-icon"><step.icon size={18} /></div>
+                    <div className="vy-step-icon"><step.icon size={17} /></div>
                     <h3>{step.title}</h3>
                     <p>{step.copy}</p>
                     <span className="vy-chip vy-chip-live">{step.status === "live" ? "Live" : "Next"}</span>
@@ -431,15 +692,26 @@ export default function LandingPage() {
               <Reveal delay={0.03 * i} key={f.title}>
                 <article className="vy-feature">
                   <div className="vy-feature-top">
-                    <div className="vy-feature-icon"><f.icon size={18} /></div>
+                    <div className="vy-feature-icon"><f.icon size={17} /></div>
                     <span className="vy-chip vy-chip-live">Live</span>
                   </div>
-                  <h3 className="vy-h3">{f.title}</h3>
+                  <h3>{f.title}</h3>
                   <p>{f.copy}</p>
                 </article>
               </Reveal>
             ))}
           </div>
+
+          <Reveal>
+            <dl className="vy-ledger" style={{ marginTop: 34 }}>
+              {ledger.map((row) => (
+                <div className="vy-ledger-row" key={row.term}>
+                  <dt>{row.term}</dt>
+                  <dd>{row.detail}<small>{row.note}</small></dd>
+                </div>
+              ))}
+            </dl>
+          </Reveal>
         </div>
       </section>
 
@@ -449,8 +721,8 @@ export default function LandingPage() {
             <Reveal>
               <div>
                 <span className="vy-eyebrow"><i className="vy-dot" />Inside the studio</span>
-                <h2 className="vy-h2" style={{ margin: "16px 0 18px" }}>A workspace that<br />tells you the truth.</h2>
-                <p className="vy-lede" style={{ maxWidth: 400, marginBottom: 26 }}>
+                <h2 className="vy-h2">A workspace that<br />tells you the truth.</h2>
+                <p className="vy-lede">
                   Six studios, one workspace. Each one declares whether it is live, limited or planned —
                   the app never dresses a preview up as a finished feature.
                 </p>
@@ -464,7 +736,7 @@ export default function LandingPage() {
                 {surfaces.map((s, i) => (
                   <Reveal delay={0.03 * i} key={s.label}>
                     <div className="vy-surface">
-                      <div className="vy-surface-icon"><s.icon size={16} /></div>
+                      <div className="vy-surface-icon"><s.icon size={15} /></div>
                       <div>
                         <b>{s.label}</b>
                         <small>{s.copy}</small>
@@ -475,10 +747,10 @@ export default function LandingPage() {
                 ))}
               </div>
               <Reveal delay={0.12}>
-                <div className="vy-art-frame" style={{ marginTop: 18, aspectRatio: "16 / 8" }}>
+                <div className="vy-art-frame" style={{ marginTop: 16, aspectRatio: "16 / 7" }}>
                   <img src="/assets/landing/toys.webp" alt="Pastel 3D geometric shapes on a cream backdrop" loading="lazy" />
                   <div className="vy-art-card">
-                    <div className="vy-art-icon"><Layers3 size={17} /></div>
+                    <div className="vy-art-icon"><Layers3 size={15} /></div>
                     <div>
                       <b>Foundations first</b>
                       <small>Import → transcript → ranked candidates → export. Everything else is on the roadmap, in public.</small>
@@ -487,6 +759,69 @@ export default function LandingPage() {
                 </div>
               </Reveal>
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="vy-section" id="pricing" style={{ paddingTop: 0 }}>
+        <div className="vy-shell">
+          <div className="vy-section-head">
+            <div>
+              <Reveal><span className="vy-eyebrow"><i className="vy-dot" />What it costs</span></Reveal>
+              <Reveal delay={0.05}><h2 className="vy-h2">Self-hosted, and<br />stated plainly.</h2></Reveal>
+            </div>
+            <Reveal delay={0.1}>
+              <p className="vy-lede">
+                There is no billing layer in this codebase. The studio runs on hardware you
+                already have, and the source is in the open.
+              </p>
+            </Reveal>
+          </div>
+          <div className="vy-plans">
+            <Reveal>
+              <div className="vy-plan featured">
+                <div className="vy-plan-head">
+                  <h3>Self-hosted</h3>
+                  <span className="vy-chip vy-chip-live">Available now</span>
+                </div>
+                <div className="vy-plan-price">Free<small>your hardware</small></div>
+                <ul>
+                  {[
+                    "Unlimited imports, clips and renders",
+                    "Word-timed captions plus SRT, VTT and ASS sidecars",
+                    "Auto-reframing and measured quality reports",
+                    "Real OAuth connections with your own provider apps",
+                    "Documentation, runbook and source in the repo",
+                  ].map((line) => <li key={line}><Check size={14} />{line}</li>)}
+                </ul>
+                <Link className="vy-btn vy-btn-coral" to="/docs/deployment-runbook">
+                  Read the deployment runbook <ArrowUpRight size={14} />
+                </Link>
+              </div>
+            </Reveal>
+            <Reveal delay={0.06}>
+              <div className="vy-plan">
+                <div className="vy-plan-head">
+                  <h3>Hosted</h3>
+                  <span className="vy-chip vy-chip-next">Not offered</span>
+                </div>
+                <div className="vy-plan-price">—<small>no fake checkout</small></div>
+                <ul>
+                  {[
+                    "No plan, no trial and no card form on this site",
+                    "A managed version needs per-tenant isolation first",
+                    "When it exists, pricing will be published here before sign-up",
+                  ].map((line) => <li key={line}><Plus size={14} />{line}</li>)}
+                </ul>
+                <Link className="vy-btn vy-btn-ghost" to="/docs/roadmap">
+                  See the release roadmap <ArrowRight size={14} />
+                </Link>
+              </div>
+              <p className="vy-plan-note">
+                Costs you control: your electricity, disk and any provider API quota. The studio
+                makes no outbound calls you did not start.
+              </p>
+            </Reveal>
           </div>
         </div>
       </section>
@@ -529,28 +864,30 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section className="vy-section" id="principles" style={{ paddingTop: 0 }}>
+      <section className="vy-section" id="faq" style={{ paddingTop: 0 }}>
         <div className="vy-shell">
           <div className="vy-section-head">
             <div>
-              <Reveal><span className="vy-eyebrow"><i className="vy-dot" />How we build</span></Reveal>
-              <Reveal delay={0.05}><h2 className="vy-h2">Principles over<br />performance.</h2></Reveal>
+              <Reveal><span className="vy-eyebrow"><i className="vy-dot" />Straight answers</span></Reveal>
+              <Reveal delay={0.05}><h2 className="vy-h2">Questions people<br />actually ask.</h2></Reveal>
             </div>
             <Reveal delay={0.1}>
               <p className="vy-lede">
-                No fake metrics, no simulated publishing, no dead controls.
-                If it is not real yet, the interface says so.
+                If an answer here ever stops being true, it gets changed in the same commit
+                as the code.
               </p>
             </Reveal>
           </div>
-          <div className="vy-principles">
-            {principles.map((p, i) => (
-              <Reveal delay={0.04 * i} key={p.n}>
-                <div className="vy-principle">
-                  <span>{p.n}</span>
-                  <b>{p.title}</b>
-                  <p>{p.copy}</p>
-                </div>
+          <div className="vy-faq">
+            {faqs.map((item, i) => (
+              <Reveal delay={0.02 * i} key={item.q}>
+                <details className="vy-faq-item" open={i === 0}>
+                  <summary>
+                    <h3>{item.q}</h3>
+                    <span aria-hidden="true"><Plus size={14} /></span>
+                  </summary>
+                  <p>{item.a}</p>
+                </details>
               </Reveal>
             ))}
           </div>
@@ -562,7 +899,7 @@ export default function LandingPage() {
           <Reveal>
             <div className="vy-cta">
               <div className="vy-cta-inner">
-                <span className="vy-eyebrow"><i className="vy-dot" />Start where the story is</span>
+                <span className="vy-eyebrow"><i className="vy-dot" />Start where you are</span>
                 <h2>Your footage is already<br />full of <em>moments.</em></h2>
                 <p>Bring a recording in, let the pipeline find the moments, and keep the final cut in your hands.</p>
                 <div className="vy-cta-actions">
@@ -593,28 +930,31 @@ export default function LandingPage() {
               <a href="#workflow">Pipeline</a>
               <a href="#capabilities">Capabilities</a>
               <a href="#studio">Studio surfaces</a>
-              <a href="#roadmap">Roadmap</a>
+              <a href="#pricing">Pricing</a>
+              <a href="#faq">FAQ</a>
             </div>
             <div className="vy-footer-col">
               <b>Workspace</b>
               <Link to="/studio">Dashboard</Link>
               <Link to="/create">Clip studio</Link>
               <Link to="/projects">Projects</Link>
-              <Link to="/settings">Settings</Link>
+              <Link to="/connections">Connections</Link>
             </div>
             <div className="vy-footer-col">
               <b>Documentation</b>
               <Link to="/docs">All documentation</Link>
-              {docLinks.slice(0, 3).map((doc) => (
-                <Link key={doc.slug} to={`/docs/${doc.slug}`}>{doc.label}</Link>
-              ))}
+              <Link to="/docs/feature-registry">Feature registry</Link>
+              <Link to="/docs/security-and-privacy">Security &amp; privacy</Link>
+              <Link to="/docs/deployment-runbook">Deployment runbook</Link>
             </div>
           </div>
           <div className="vy-footer-bottom">
-            <span>© {new Date().getFullYear()} VYRALIS Studio · Every moment has a story.</span>
+            <span>© {year} VYRALIS Studio · Every moment has a story.</span>
+            <span className="vy-footer-status"><i />Local engine · Studio 0.3</span>
             <span>
               <a href="https://github.com/leephil1907-lab/vyralis" target="_blank" rel="noreferrer">GitHub</a>
-              <i style={{ opacity: 0.4 }}>·</i> STUDIO / 0.3
+              <i style={{ opacity: 0.4, padding: "0 6px" }}>·</i>
+              <a href="#top">Back to top</a>
             </span>
           </div>
         </div>

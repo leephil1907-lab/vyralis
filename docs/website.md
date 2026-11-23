@@ -85,6 +85,58 @@ now share the dark control style, with checkboxes excluded so toggle rows stay c
 - `prefers-reduced-motion` disables the marquee and transitions.
 - Reveal animations use `whileInView` with `once`, so content is present for crawlers and assistive technology.
 
+## Visual system v3
+
+The public site and the studio now share one discipline, taken from the craft rules in
+MotionSites' web-builder skill (composition, typography, colour, motion, and a QA rubric
+with blocking failures) and adapted to this product.
+
+### Type
+
+- **Two families, not four.** `DM Sans` for display, body, labels and UI; `Instrument Serif`
+  italic for accent words inside a headline. `Poppins` and `Space Grotesk` were removed.
+  The Google Fonts request is a single preconnected `<link>` in `index.html`, not two CSS
+  `@import`s, so nothing blocks first paint.
+- Display: `clamp(46px, 7.4vw, 102px)` at line-height `.94` and tracking `-.042em`.
+  H2: `clamp(29px, 4vw, 50px)` at `1.03` / `-.032em`. Studio H1: `clamp(31px, 3.5vw, 45px)`.
+- Body 13–17px depending on role, helpers never below 10px, labels 10px uppercase at
+  `+.16–.18em`. Metrics use `font-variant-numeric: tabular-nums`.
+
+### Colour and surfaces
+
+- Public site keeps the cream paper, deep violet ink and single coral accent. The studio
+  drops the blue-violet glow orbs for near-black `#07070a` with hairlines at 8–14% white,
+  one violet accent (`#8e7cff`) and one solid primary (`#6e5cf5`). Depth comes from a single
+  soft shadow, not gradients.
+- A 3.5% multiply grain layer sits over the public site to unify photography with flat colour.
+- The document background is set to cream while the public site is mounted, so overscroll and
+  the scrollbar match the page instead of flashing the studio's dark shell.
+
+### Motion
+
+Entrances are staggered 0.6s `cubic-bezier(.22,1,.36,1)` reveals at 40–60ms intervals;
+hovers stay under 300ms; the marquee runs 38s; `prefers-reduced-motion` collapses all of it.
+Nothing depends on JavaScript to become visible.
+
+### Components
+
+- Floating pill navigation that gains a shadow after 90px of scroll, with an accessible
+  **Resources** dropdown (click, outside-click and Escape to close) and a matching mobile sheet.
+- Hero: display headline, lede, the link quick-start, secondary actions and a fact strip,
+  beside a real interface frame labelled as the studio's Review surface.
+- **Signature interaction:** a draggable sample timeline. Pointer drag or arrow keys move the
+  playhead; the phone preview follows with the spoken words highlighted, the layout and score
+  chips update, and the caption rebuilds around the active word. It is keyboard-reachable as
+  `role="slider"` with `aria-valuetext`, and it is labelled as a sample.
+- Dark "sheet" section with a 44px top radius for the workspace, carrying the scrubber.
+- Pipeline (5 steps), explainable ranking preview, capabilities, a facts ledger, studio
+  surfaces with live/limited/planned chips, two honest plans (self-hosted free, hosted not
+  offered — no fake checkout), the roadmap card, a six-question FAQ with native `<details>`,
+  and a closing CTA.
+- Studio: five navigation clusters (Create, Craft, Publish, Measure, System), a 12-column
+  dashboard bento, four live metric cards fed by `/api/metrics`, and an **Engine readiness**
+  panel in Settings that renders `/api/ready` check by check with plain-language detail.
+
 ## Information architecture
 
 The public site is a single narrative page (`/`) plus a documentation section and the
