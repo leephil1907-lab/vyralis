@@ -39,6 +39,10 @@ The implemented local vertical slice currently supports:
 11. Validate packaging copy per destination, approve a package, and download the approved file for manual upload.
 12. Cancel queued or running jobs at worker checkpoints, with retries and idempotent export requests.
 13. Recover queued/processing jobs after worker restart using the local SQLite job records.
+14. Import a YouTube, Twitch or Kick **link** with yt-dlp (rights attestation required, host allowlist, duration/size caps), then run the same transcribe → rank → render pipeline.
+15. Burn word-timed captions into the MP4 in three styles (clean, karaoke sweep, impact), with an optional hook line on its own top layer; download matching SRT, VTT and ASS sidecars.
+16. Reframe to the export preset with a centre crop, a blurred-fill layout, or face-tracked cropping when the optional vision extra is installed.
+17. Show exactly what was burned in — captions, style, hook, layout and whether tracking actually ran — inside the render quality report.
 
 The candidate score is a transparent transcript heuristic. It is not a trained virality model and does not predict reach. The current API is a single-workspace local foundation, not a secure multi-user hosted service.
 
@@ -74,23 +78,31 @@ These areas are not all implemented. Each feature must be connected to a real se
 
 ## Local development
 
-Requirements: Python 3.11, Node.js 20+, FFmpeg and FFprobe.
+Requirements: Python 3.11, Node.js 20+, FFmpeg and FFprobe, and `yt-dlp` if you want to import links.
+
+FFmpeg must be built with **libass** for burned-in captions (`ffmpeg -filters | grep subtitles`). Distro packages, Termux's `ffmpeg` package and the usual static builds include it. Without libass, the render fails loudly with the FFmpeg error instead of producing a video with no captions.
 
 Backend:
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install -r backend/requirements.txt
+pip install -r backend/requirements.txt   # includes yt-dlp for link imports
+# optional: face-tracked framing instead of centre crops
+pip install opencv-python-headless
 VYRALIS_DATA_DIR=./data uvicorn backend.app.main:app --reload --host 127.0.0.1 --port 8000
 ```
+
+On Android/Termux the same steps work with `pkg install python nodejs ffmpeg yt-dlp`, then `python -m venv` and the commands above. Use the smallest whisper model your device can run (`VYRALIS_WHISPER_MODEL=small` or `base`).
 
 Frontend, in a second terminal:
 
 ```bash
 npm install
-VITE_API_BASE_URL=http://127.0.0.1:8000 npm run dev
+npm run dev
 ```
+
+The Vite dev and preview servers proxy `/api` to `http://127.0.0.1:8000`, so the browser stays on one origin and no CORS setup is needed. Point the proxy elsewhere with `VYRALIS_API_TARGET`, or set `VITE_API_BASE_URL` if the API is on another host.
 
 The first faster-whisper run downloads the configured model. Configure VYRALIS_WHISPER_MODEL, VYRALIS_WHISPER_DEVICE and VYRALIS_WHISPER_COMPUTE for the available hardware.
 

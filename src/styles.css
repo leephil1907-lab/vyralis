@@ -77,3 +77,19 @@
 .sidebar::-webkit-scrollbar{width:6px}
 .sidebar::-webkit-scrollbar-thumb{background:rgba(174,187,230,.18);border-radius:6px}
 .nav-group{margin-bottom:18px}
+
+/* Link ingestion + render options */
+.rights-check{display:flex;align-items:flex-start;gap:9px;margin-top:12px;font-size:10px;line-height:1.55;color:#a3adc6;cursor:pointer}
+.rights-check input{margin-top:1px;accent-color:#8658e8;flex:none}
+.render-options{margin-top:16px;display:grid;gap:12px;padding:14px;border:1px solid rgba(174,187,230,.12);border-radius:12px;background:rgba(255,255,255,.025)}
+.render-option-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.render-option-row .micro-label{color:#9d8cff}
+.chip-row{display:flex;gap:6px;flex-wrap:wrap}
+.chip-row .preset-chip{min-width:auto}
+.preset-chip[disabled]{opacity:.45;cursor:not-allowed}
+.toggle-line{display:flex;align-items:center;gap:7px;font-size:10px;color:#a9b3cb;cursor:pointer}
+.toggle-line input{accent-color:#8658e8}
+.render-hint{margin:0;font-size:9px;line-height:1.6;color:#7f8aa6}
+.caption-downloads{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:10px}
+.button-secondary.small{height:29px;padding:0 10px;font-size:9px}
+@media(max-width:640px){.render-option-row{align-items:flex-start;flex-direction:column}.caption-downloads{gap:6px}}

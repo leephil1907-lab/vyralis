@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
-  AlertTriangle, ArrowLeft, Ban, Check, CheckCircle2, Download, Hash,
-  RefreshCw, Scissors, ShieldCheck, Sparkles, Video, XCircle,
+  AlertTriangle, ArrowLeft, Ban, Captions, Check, CheckCircle2, Crop, Download,
+  FileText, Hash, RefreshCw, Scissors, ShieldCheck, Sparkles, Video, XCircle,
 } from "lucide-react";
 import {
-  api, type Clip, type ClipExport, type ExportPreset, type Packaging,
-  type PresetInfo, type ProcessingJob,
+  api, type CaptionStyle, type Clip, type ClipExport, type ExportPreset,
+  type FrameLayout, type Packaging, type PresetInfo, type ProcessingJob,
 } from "../lib/api";
 
 const clock = (value: number) => {
@@ -33,6 +33,10 @@ export default function ReviewPage() {
 
   const [presets, setPresets] = useState<PresetInfo[]>([]);
   const [preset, setPreset] = useState<ExportPreset>("9:16");
+  const [captionStyle, setCaptionStyle] = useState<CaptionStyle>("karaoke");
+  const [layout, setLayout] = useState<FrameLayout>("center");
+  const [burnCaptions, setBurnCaptions] = useState(true);
+  const [hookOverlay, setHookOverlay] = useState(true);
   const [exports, setExports] = useState<ClipExport[]>([]);
   const [packaging, setPackaging] = useState<Packaging[]>([]);
   const [destination, setDestination] = useState("tiktok");
@@ -139,7 +143,10 @@ export default function ReviewPage() {
     if (!active) return;
     setBusy(true); setError(""); setNotice("");
     try {
-      const result = await api.exportClip(active.id, preset);
+      const result = await api.exportClip(active.id, {
+        preset, captions: burnCaptions, caption_style: captionStyle,
+        layout, hook_overlay: hookOverlay,
+      });
       setRenderJobId(result.job_id);
       setRenderMessage(result.idempotent ? "A render for this preset is already running…" : "Render queued…");
       await loadClipDetail(active.id, destination);
@@ -265,6 +272,44 @@ export default function ReviewPage() {
               ))}
             </div>
 
+            <div className="render-options">
+              <div className="render-option-row">
+                <span className="micro-label"><Captions size={12}/> CAPTIONS</span>
+                <label className="toggle-line">
+                  <input type="checkbox" checked={burnCaptions} onChange={e => setBurnCaptions(e.target.checked)}/>
+                  Burn captions into the video
+                </label>
+                <div className="chip-row">
+                  {(["karaoke", "clean", "impact"] as CaptionStyle[]).map(style => (
+                    <button key={style} disabled={!burnCaptions}
+                      className={"preset-chip" + (captionStyle === style ? " active" : "")}
+                      onClick={() => setCaptionStyle(style)}>{style}</button>
+                  ))}
+                </div>
+              </div>
+              <div className="render-option-row">
+                <span className="micro-label"><Crop size={12}/> FRAMING</span>
+                <div className="chip-row">
+                  {(["center", "face", "blur"] as FrameLayout[]).map(option => (
+                    <button key={option}
+                      className={"preset-chip" + (layout === option ? " active" : "")}
+                      onClick={() => setLayout(option)}
+                      title={option === "face" ? "Tracks faces when OpenCV is installed, otherwise centres the crop" : option === "blur" ? "Keeps the full frame with blurred bars" : "Centre crop"}>
+                      {option}
+                    </button>
+                  ))}
+                </div>
+                <label className="toggle-line">
+                  <input type="checkbox" checked={hookOverlay} onChange={e => setHookOverlay(e.target.checked)}/>
+                  Overlay the hook line at the top
+                </label>
+              </div>
+              <p className="render-hint">
+                Captions come from the stored word timings. Framing is applied while rendering, and the quality report
+                records exactly what was burned in.
+              </p>
+            </div>
+
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 14 }}>
               <button className="button-primary" onClick={() => void exportClip()} disabled={busy || !!renderJobId}>
                 <Download size={15}/> Render {preset} &amp; validate
@@ -298,6 +343,12 @@ export default function ReviewPage() {
                 <p className="quality-note">
                   Checks are measured from the rendered file: duration, frame size, codecs, black frames, frozen frames and loudness.
                   A failed check blocks the download; warnings remain your call.
+                  {latestExport.quality_report.render && (
+                    <> Rendered with {latestExport.quality_report.render.captions
+                      ? `${latestExport.quality_report.render.caption_style} captions`
+                      : "no burned captions"}, {latestExport.quality_report.render.layout} framing
+                      {latestExport.quality_report.render.hook_overlay ? ", hook overlay" : ""} — {latestExport.quality_report.render.framing_note}.</>
+                  )}
                 </p>
               </div>
             )}
@@ -328,6 +379,14 @@ export default function ReviewPage() {
                 onChange={e => setClips(old => old.map(clip => clip.id === active.id ? { ...clip, title: e.target.value } : clip))}
               />
             </label>
+            <label style={{ display: "block", marginTop: 10 }}>Hook line (max 10 words)
+              <input
+                value={active.hook ?? ""}
+                maxLength={80}
+                placeholder="Short on-screen opener"
+                onChange={e => setClips(old => old.map(clip => clip.id === active.id ? { ...clip, hook: e.target.value } : clip))}
+              />
+            </label>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 12 }}>
               <label>Start (seconds)
                 <input type="number" min="0" step=".1" value={active.start_seconds}
@@ -356,6 +415,14 @@ export default function ReviewPage() {
             <div style={{ marginTop: 18 }}>
               <span className="micro-label">TRANSCRIPT</span>
               <p style={{ fontSize: 13, lineHeight: 1.7 }}>{active.transcript}</p>
+              <div className="caption-downloads">
+                <span className="micro-label"><FileText size={12}/> DOWNLOAD CAPTIONS</span>
+                {(["srt", "vtt", "ass"] as const).map(format => (
+                  <a key={format} className="button-secondary small" href={api.captionsUrl(active.id, format, captionStyle)}>
+                    <Download size={13}/> {format.toUpperCase()}
+                  </a>
+                ))}
+              </div>
             </div>
 
             <div className="packaging-block">

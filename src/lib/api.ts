@@ -1,16 +1,23 @@
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000";
+// Empty by default so requests stay relative and go through the dev/preview proxy.
+// Set VITE_API_BASE_URL when the API lives on another host.
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
 
 export type Health = { status: string; version: string; capabilities: string[] };
 export type MediaAsset = { id: string; filename: string; size: number; content_type: string; created_at: string; duration_seconds?: number | null };
 export type Project = { id: string; title: string; status: string; job_id?: string; filename?: string; duration_seconds?: number; clip_count?: number };
 export type ProcessingJob = { id: string; project_id: string; status: string; stage: string; progress: number; message: string; error?: string | null };
-export type Clip = { id: string; project_id: string; rank: number; start_seconds: number; end_seconds: number; score: number; score_breakdown: Record<string,number>; reason: string; transcript: string; title: string; status: string; output_path?: string | null };
+export type Clip = { id: string; project_id: string; rank: number; start_seconds: number; end_seconds: number; score: number; score_breakdown: Record<string,number>; reason: string; transcript: string; title: string; status: string; output_path?: string | null; hook?: string | null };
+
+export type CaptionStyle = "clean" | "karaoke" | "impact";
+export type FrameLayout = "center" | "face" | "blur";
+export type SourcePreview = { title: string; duration_seconds: number; uploader: string; thumbnail?: string | null; platform: string; url: string; is_live?: boolean };
+export type LinkProject = { id: string; title: string; status: string; job_id: string; source: { platform: string; url: string; duration_seconds: number } };
 
 export type ExportPreset = "9:16" | "1:1" | "16:9";
 export type PresetInfo = { preset: ExportPreset; label: string; width: number; height: number; use: string };
 export type QualityCheck = { id: string; label: string; status: "pass" | "warn" | "fail"; detail: string };
-export type QualityReport = { status: "pass" | "warn" | "fail"; summary: string; checks: QualityCheck[]; metrics: Record<string, number | null> };
-export type ClipExport = { id: string; clip_id: string; preset: ExportPreset; status: string; job_id?: string | null; width?: number | null; height?: number | null; duration_seconds?: number | null; quality_report?: QualityReport | null; download_url?: string | null; error?: string | null; created_at: string };
+export type QualityReport = { status: "pass" | "warn" | "fail"; summary: string; checks: QualityCheck[]; metrics: Record<string, number | null>; render?: { captions: boolean; caption_style: string | null; hook_overlay: boolean; layout: string; tracked: boolean; framing_note: string } };
+export type ClipExport = { id: string; clip_id: string; preset: ExportPreset; status: string; job_id?: string | null; width?: number | null; height?: number | null; duration_seconds?: number | null; quality_report?: QualityReport | null; download_url?: string | null; error?: string | null; created_at: string; layout?: string | null; options?: { captions?: boolean; caption_style?: string; layout?: string; hook_overlay?: boolean } | null };
 export type Packaging = {
   clip_id: string; clip_title: string; project_id: string; destination: string; destination_label: string;
   title: string; description: string; hashtags: string[]; approved: boolean; approved_at?: string | null;
@@ -48,10 +55,13 @@ export const api = {
   clips: (projectId: string) => request<Clip[]>(`/api/projects/${projectId}/clips`),
   editClip: (clip: Clip) => request<Clip>(`/api/clips/${clip.id}`, {
     method: "PATCH", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ start_seconds: clip.start_seconds, end_seconds: clip.end_seconds, title: clip.title })
+    body: JSON.stringify({ start_seconds: clip.start_seconds, end_seconds: clip.end_seconds, title: clip.title, hook: clip.hook ?? "" })
   }),
   exportPresets: () => request<{ presets: PresetInfo[] }>("/api/export-presets"),
-  exportClip: (id: string, preset: ExportPreset = "9:16") => request<{ clip_id: string; export_id: string; job_id: string; preset: string; status: string; idempotent?: boolean }>(`/api/clips/${id}/export`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ preset }) }),
+  previewSource: (url: string) => request<SourcePreview>("/api/sources/preview", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url }) }),
+  createProjectFromLink: (payload: { url: string; rights_attested: boolean; clip_count?: number; min_duration?: number; max_duration?: number }) => request<LinkProject>("/api/projects/from-link", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }),
+  exportClip: (id: string, options: { preset: ExportPreset; captions?: boolean; caption_style?: CaptionStyle; layout?: FrameLayout; hook_overlay?: boolean }) => request<{ clip_id: string; export_id: string; job_id: string; preset: string; status: string; idempotent?: boolean }>(`/api/clips/${id}/export`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...options, captions: options.captions ?? true, hook_overlay: options.hook_overlay ?? true }) }),
+  captionsUrl: (id: string, format: "srt" | "vtt" | "ass", style: CaptionStyle = "karaoke") => `${API_BASE}/api/clips/${id}/captions?format=${format}&style=${style}`,
   clipExports: (id: string) => request<ClipExport[]>(`/api/clips/${id}/exports`),
   packaging: (id: string) => request<Packaging[]>(`/api/clips/${id}/packaging`),
   savePackaging: (id: string, payload: { destination: string; title: string; description: string; hashtags: string[] }) => request<Packaging>(`/api/clips/${id}/packaging`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }),

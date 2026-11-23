@@ -6,12 +6,12 @@ VYRALIS is a browser-based studio backed by a local-first processing service. Th
 
 ## Engine boundaries
 
-- **Ingestion service:** validates, stores and indexes source assets.
+- **Ingestion service:** validates, stores and indexes source assets — local uploads, plus allowlisted links resolved by yt-dlp (`backend/app/ingest.py`). The URL policy (hosts, schemes, ports, credentials, IP literals, duration and size caps) is the only place a link becomes trusted.
 - **Transcription adapter:** WhisperX or another evaluated speech-to-text backend; returns transcript segments, word timestamps and optional speaker labels.
 - **Scene adapter:** PySceneDetect; returns scene boundaries and visual change metadata.
 - **Vision adapter:** MediaPipe and/or a validated detector/tracker; returns face/object tracks and confidence values.
 - **Highlight engine:** combines transcript semantics, scene boundaries, speaker turns, audio energy and visual evidence into candidate clips. Scores must be explainable and user-adjustable.
-- **Composition engine:** generates 9:16, 1:1 and 16:9 layouts, speaker-aware crops, caption tracks and editable overlays.
+- **Composition engine:** generates 9:16, 1:1 and 16:9 layouts, centre/blur/face-tracked crops, word-timed caption tracks and hook overlays. Delivered as `backend/app/reframe.py` (filter graph) and `backend/app/captions.py` (ASS/SRT/VTT).
 - **Render engine:** FFmpeg for media operations; Remotion may provide React-based motion-graphics templates where its runtime and licence are suitable.
 - **Job service:** persistent job state, cancellation, progress events, retry policy and per-project isolation.
 
@@ -49,9 +49,40 @@ Renders are deterministic and inspectable:
 5. **Delivery** — approved packages are listed with their validated file for manual upload.
    No platform adapter exists, so no publishing call is ever simulated.
 
+## Captions, framing and link ingestion (implemented)
+
+**Link ingestion.** `POST /api/sources/preview` resolves metadata with `yt-dlp --dump-single-json`
+(no download) so the creator can see what the link is; `POST /api/projects/from-link` requires
+`rights_attested: true`, then queues a normal processing job whose first stage downloads the
+source into the media store, re-probes it with FFprobe and continues through transcription and
+ranking. Live streams and sources over `VYRALIS_MAX_SOURCE_DURATION` are rejected before any
+bytes are fetched. Nothing is downloaded unless the request carries the attestation.
+
+**Word-timed captions.** Whisper word timestamps are persisted once per project in `transcripts`
+and reused for every export. `build_ass` writes a real ASS document sized to the export frame
+(`PlayResX/Y` = render dimensions, font size and margins scaled from the 1080×1920 reference),
+with a karaoke `\k` sweep per word for the karaoke/impact styles, a separate `Hook` style pinned
+to the top, text sanitised against ASS override injection, and the hook font shrunk until the
+line fits the frame. The file is burned in with the `subtitles` filter, so FFmpeg must be built
+with libass. SRT, VTT and ASS sidecars are served from the same timings via
+`GET /api/clips/{id}/captions`.
+
+**Framing.** `build_filter` emits a filter graph ending in `[vout]` for three layouts:
+`center` (cover-scale + crop), `blur` (split → blurred cover background + contained foreground
+overlay) and `face` (cover-scale around a damped focus point). Face detection is optional
+(`opencv-python-headless`, Haar cascade); when it is missing or finds nothing, the crop falls
+back to centre and the export report says so instead of claiming tracking. Crop offsets are
+always clamped inside the scaled frame and dimensions are forced even for H.264.
+
+**Honest reporting.** `report["render"]` records captions on/off, the style actually burned in,
+whether the hook overlay was drawn, the layout used, whether tracking ran and a framing note.
+The UI renders that next to the measured metrics, so a viewer can tell what was applied.
+
 ## Quality gates
 
-- Unit tests for timecode conversion, clip boundary logic and crop geometry.
+- Unit tests for timecode conversion, clip boundary logic and crop geometry
+  (`tests/test_captions.py`, `tests/test_reframe.py`, `tests/test_ingest.py`, `tests/test_hooks.py`
+  — 109 tests, no FFmpeg, model or network required).
 - Integration tests with short, licensed sample media.
 - Golden-output tests for subtitle timing and render dimensions.
 - Performance benchmarks on CPU and supported GPU configurations.
