@@ -82,9 +82,9 @@ function App() {
   }
 
   const page = (node:ReactNode) => <motion.div className="page-content" key={location.pathname} {...pageMotion} transition={{duration:.24,ease:[.22,1,.36,1]}}>{node}</motion.div>;
-  const PageHeader = ({eyebrow,heading,description,action}:{eyebrow:string;heading:string;description:string;action?:React.ReactNode}) => <div className="page-heading"><div><div className="eyebrow"><Sparkles size={13}/>{eyebrow}</div><h1>{heading}</h1><p>{description}</p></div>{action&&<div className="heading-action">{action}</div>}</div>;
-  const Glass = ({children,className=""}:{children:React.ReactNode;className?:string}) => <section className={"glass "+className}>{children}</section>;
-  const Empty = ({icon:Icon=Film,title:heading,copy,action}:{icon?:any;title:string;copy:string;action?:React.ReactNode}) => <div className="empty-panel"><div className="empty-icon"><Icon size={23}/></div><h3>{heading}</h3><p>{copy}</p>{action}</div>;
+  const PageHeader = ({eyebrow,heading,description,action}:{eyebrow:string;heading:string;description:string;action?:ReactNode}) => <div className="page-heading"><div><div className="eyebrow"><Sparkles size={13}/>{eyebrow}</div><h1>{heading}</h1><p>{description}</p></div>{action&&<div className="heading-action">{action}</div>}</div>;
+  const Glass = ({children,className=""}:{children:ReactNode;className?:string}) => <section className={"glass "+className}>{children}</section>;
+  const Empty = ({icon:Icon=Film,title:heading,copy,action}:{icon?:any;title:string;copy:string;action?:ReactNode}) => <div className="empty-panel"><div className="empty-icon"><Icon size={23}/></div><h3>{heading}</h3><p>{copy}</p>{action}</div>;
 
   function Dashboard(){
     return page(<>
