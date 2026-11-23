@@ -9,7 +9,8 @@
 - [ ] API validation, tests and CI test coverage.
 
 ## Release 1 — Real clipping MVP
-- [ ] Local file import and validated source adapters.
+- [ ] First-class paste-link ingestion for YouTube, Twitch and Kick VODs plus local file upload.
+- [ ] Source metadata/caption resolution, audio-first analysis, selective section downloads and live-stream capture where supported.
 - [ ] WhisperX/faster-whisper transcription and word timestamps.
 - [ ] Speaker diarization with optional backend selection.
 - [ ] PySceneDetect and audio energy/silence analysis.
