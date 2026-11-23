@@ -62,5 +62,16 @@ JSON UTF-8; UTC ISO-8601; stable errors with code, message, optional details and
 - GET /api/v1/notifications; PATCH /api/v1/notifications/{notification_id}
 - GET /api/v1/audit-events
 
-## Existing local API
-Current routes cover health, assets, projects, jobs, project clips/source, clip edit/export/download and job retry. Add tests and a deprecation plan before removing them.
+## Existing local API (implemented today)
+- `GET /api/health`
+- `GET|POST /api/assets`
+- `POST|GET /api/projects`; `GET /api/projects/{project_id}/clips`; `GET /api/projects/{project_id}/source`
+- `GET /api/jobs/{job_id}`; `POST /api/jobs/{job_id}/retry`; `POST /api/jobs/{job_id}/cancel`
+- `PATCH /api/clips/{clip_id}`; `GET /api/clips/{clip_id}/download`
+- `GET /api/export-presets`; `GET /api/destinations`
+- `POST /api/clips/{clip_id}/export` (optional `{ "preset": "9:16" | "1:1" | "16:9" }`, idempotent while a matching render is active)
+- `GET /api/clips/{clip_id}/exports`; `GET /api/exports/{export_id}/download`
+- `GET|PUT /api/clips/{clip_id}/packaging`; `POST /api/clips/{clip_id}/packaging/approval`
+- `GET /api/publish/packages`
+
+These are the only routes that exist. Everything else in this document is a target. Add tests and a deprecation plan before removing or renaming them.

@@ -34,8 +34,11 @@ The implemented local vertical slice currently supports:
 6. Build transcript-window clip candidates with an explainable heuristic score breakdown.
 7. Review candidate previews, transcripts and timecodes.
 8. Edit clip start/end and title.
-9. Render a vertical H.264/AAC MP4 with FFmpeg and download it.
-10. Recover queued/processing jobs after worker restart using the local SQLite job records.
+9. Render H.264/AAC MP4 at 9:16, 1:1 or 16:9 with FFmpeg.
+10. Inspect every render automatically (duration, frame size, codecs, black frames, frozen frames, loudness) and block downloads that fail.
+11. Validate packaging copy per destination, approve a package, and download the approved file for manual upload.
+12. Cancel queued or running jobs at worker checkpoints, with retries and idempotent export requests.
+13. Recover queued/processing jobs after worker restart using the local SQLite job records.
 
 The candidate score is a transparent transcript heuristic. It is not a trained virality model and does not predict reach. The current API is a single-workspace local foundation, not a secure multi-user hosted service.
 

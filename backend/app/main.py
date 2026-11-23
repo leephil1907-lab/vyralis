@@ -13,10 +13,20 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import Body, FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
+
+from .delivery import (
+    DESTINATIONS,
+    PRESETS,
+    approval_gate,
+    evaluate_export,
+    preset_geometry,
+    preset_list,
+    validate_packaging,
+)
 
 ROOT = Path(os.getenv("VYRALIS_DATA_DIR", "./data")).resolve()
 MEDIA, OUTPUTS = ROOT / "media", ROOT / "outputs"
@@ -26,7 +36,7 @@ DB_PATH = ROOT / "vyralis.sqlite3"
 MAX_UPLOAD = int(os.getenv("VYRALIS_MAX_UPLOAD_BYTES", str(5 * 1024**3)))
 POOL = ThreadPoolExecutor(max_workers=max(1, int(os.getenv("VYRALIS_WORKERS", "1"))))
 
-app = FastAPI(title="VYRALIS Processing API", version="0.2.0")
+app = FastAPI(title="VYRALIS Processing API", version="0.3.0")
 app.add_middleware(CORSMiddleware, allow_origins=os.getenv("VYRALIS_CORS_ORIGINS", "http://localhost:5173").split(","), allow_credentials=False, allow_methods=["GET", "POST", "PATCH"], allow_headers=["*"])
 
 
@@ -59,6 +69,9 @@ def init_db() -> None:
         CREATE TABLE IF NOT EXISTS clips(id TEXT PRIMARY KEY,project_id TEXT NOT NULL REFERENCES projects(id),rank INTEGER NOT NULL,start_seconds REAL NOT NULL,end_seconds REAL NOT NULL,score INTEGER NOT NULL,score_breakdown TEXT NOT NULL,reason TEXT NOT NULL,transcript TEXT NOT NULL,title TEXT NOT NULL,status TEXT NOT NULL,output_path TEXT,created_at TEXT NOT NULL);
         CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status,created_at);
         CREATE INDEX IF NOT EXISTS idx_clips_project ON clips(project_id,rank);
+        CREATE TABLE IF NOT EXISTS clip_exports(id TEXT PRIMARY KEY,clip_id TEXT NOT NULL REFERENCES clips(id),preset TEXT NOT NULL,status TEXT NOT NULL,job_id TEXT,output_path TEXT,width INTEGER,height INTEGER,duration_seconds REAL,quality_report TEXT,error TEXT,created_at TEXT NOT NULL,updated_at TEXT NOT NULL);
+        CREATE INDEX IF NOT EXISTS idx_exports_clip ON clip_exports(clip_id,created_at);
+        CREATE TABLE IF NOT EXISTS clip_packaging(clip_id TEXT NOT NULL REFERENCES clips(id),destination TEXT NOT NULL,title TEXT NOT NULL,description TEXT NOT NULL,hashtags TEXT NOT NULL,approved INTEGER NOT NULL DEFAULT 0,approved_at TEXT,updated_at TEXT NOT NULL,PRIMARY KEY(clip_id,destination));
         """)
 
 
@@ -137,9 +150,21 @@ def make_clips(project_id: str, transcript: list[dict[str,Any]], clip_min: int, 
     return len(selected)
 
 
+def stop_if_cancelled(job_id: str) -> bool:
+    """Terminal states for a job whose creator asked to cancel it."""
+    if not cancel_requested(job_id):
+        return False
+    with connect() as db:
+        db.execute("UPDATE jobs SET status='cancelled',stage='cancelled',message='Cancelled by the creator',updated_at=? WHERE id=?", (now(), job_id))
+        db.execute("UPDATE projects SET status='cancelled',updated_at=? WHERE id=(SELECT project_id FROM jobs WHERE id=?)", (now(), job_id))
+    return True
+
+
 def process_job(job_id: str) -> None:
     work=ROOT/"work"/job_id; work.mkdir(parents=True,exist_ok=True)
     try:
+        if stop_if_cancelled(job_id):
+            return
         with connect() as db:
             job=db.execute("SELECT * FROM jobs WHERE id=?",(job_id,)).fetchone()
             project=db.execute("SELECT * FROM projects WHERE id=?",(job["project_id"],)).fetchone()
@@ -150,11 +175,14 @@ def process_job(job_id: str) -> None:
         with connect() as db:
             db.execute("UPDATE assets SET duration_seconds=?,width=?,height=? WHERE id=?",(meta["duration_seconds"],meta["width"],meta["height"],asset["id"]))
             db.execute("UPDATE projects SET status='processing',updated_at=? WHERE id=?",(now(),project["id"]))
+        if stop_if_cancelled(job_id): return
         audio=work/"audio.wav"
         update_job(job_id,stage="audio",progress=15,message="Extracting audio for transcription")
         run(["ffmpeg","-y","-i",str(source),"-vn","-ac","1","-ar","16000","-c:a","pcm_s16le",str(audio)])
+        if stop_if_cancelled(job_id): return
         update_job(job_id,stage="transcription",progress=30,message="Transcribing speech and aligning words")
         transcript=transcribe(audio)
+        if stop_if_cancelled(job_id): return
         update_job(job_id,stage="highlight_analysis",progress=65,message="Finding and ranking self-contained moments")
         options=json.loads(job["options"])
         count=make_clips(project["id"],transcript,int(options.get("min_duration",15)),int(options.get("max_duration",60)),int(options.get("clip_count",8)))
@@ -168,21 +196,134 @@ def process_job(job_id: str) -> None:
 
 
 
-def process_export_job(job_id: str, clip_id: str) -> None:
+def probe_render(path: Path) -> dict[str, Any]:
+    """Inspect a rendered file. Separate from probe() so exports can be checked independently."""
+    if not shutil.which("ffprobe"):
+        raise RuntimeError("FFprobe is not installed on the processing server.")
+    data = json.loads(run(["ffprobe", "-v", "error", "-show_entries", "format=duration,size:stream=codec_type,codec_name,width,height", "-of", "json", str(path)], 180).stdout)
+    streams = data.get("streams", [])
+    video = next((stream for stream in streams if stream.get("codec_type") == "video"), {})
+    audio = next((stream for stream in streams if stream.get("codec_type") == "audio"), {})
+    return {
+        "duration_seconds": float(data.get("format", {}).get("duration") or 0),
+        "size_bytes": int(float(path.stat().st_size if path.exists() else 0)),
+        "width": int(video.get("width") or 0),
+        "height": int(video.get("height") or 0),
+        "video_codec": video.get("codec_name"),
+        "audio_codec": audio.get("codec_name"),
+        "has_video": bool(video),
+        "has_audio": bool(audio),
+    }
+
+
+def filter_probe(path: Path, vf: str, pattern: str) -> list[float]:
+    """Run a measurement filter (blackdetect/freezedetect) and return the reported durations."""
+    result = subprocess.run(
+        ["ffmpeg", "-hide_banner", "-nostats", "-i", str(path), "-vf", vf, "-an", "-f", "null", "-"],
+        capture_output=True, text=True, timeout=900,
+    )
+    return [float(match) for match in re.findall(pattern, result.stderr)]
+
+
+def measure_mean_volume(path: Path) -> float | None:
+    result = subprocess.run(
+        ["ffmpeg", "-hide_banner", "-nostats", "-i", str(path), "-af", "volumedetect", "-vn", "-f", "null", "-"],
+        capture_output=True, text=True, timeout=900,
+    )
+    match = re.search(r"mean_volume:\s*(-?[0-9.]+) dB", result.stderr)
+    return float(match.group(1)) if match else None
+
+
+def inspect_render(path: Path, expected_duration: float, preset: str) -> dict[str, Any]:
+    """Probe the render and run the automated quality checks used before a file is offered."""
+    meta = probe_render(path)
+    black_seconds = round(sum(filter_probe(path, "blackdetect=d=0.1:pix_th=0.10", r"black_duration:([0-9.]+)")), 3)
+    frozen_seconds = round(sum(filter_probe(path, "freezedetect=n=0.003:d=1", r"freeze_duration: ([0-9.]+)")), 3)
+    mean_volume = measure_mean_volume(path) if meta.get("has_audio") else None
+    return evaluate_export(
+        expected_duration=expected_duration,
+        preset=preset,
+        probe=meta,
+        black_seconds=black_seconds,
+        frozen_seconds=frozen_seconds,
+        mean_volume_db=mean_volume,
+    )
+
+
+def update_export(export_id: str, **values: Any) -> None:
+    values["updated_at"] = now()
+    fields = ", ".join(f"{key}=?" for key in values)
+    with connect() as db:
+        db.execute(f"UPDATE clip_exports SET {fields} WHERE id=?", (*values.values(), export_id))
+
+
+def cancel_requested(job_id: str) -> bool:
+    with connect() as db:
+        row = db.execute("SELECT status FROM jobs WHERE id=?", (job_id,)).fetchone()
+    return bool(row) and row["status"] in {"cancelling", "cancelled"}
+
+
+def process_export_job(job_id: str, export_id: str) -> None:
+    output: Path | None = None
     try:
         with connect() as db:
-            clip=db.execute("SELECT c.*,a.path FROM clips c JOIN projects p ON p.id=c.project_id JOIN assets a ON a.id=p.asset_id WHERE c.id=?",(clip_id,)).fetchone()
-        if not clip:
-            raise RuntimeError("Clip disappeared before rendering.")
-        update_job(job_id,status="processing",stage="rendering",progress=10,message="Rendering vertical MP4 with FFmpeg")
-        output=OUTPUTS/f"{clip_id}.mp4"
-        duration=clip["end_seconds"]-clip["start_seconds"]
-        run(["ffmpeg","-y","-ss",str(clip["start_seconds"]),"-i",clip["path"],"-t",str(duration),"-vf","scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920","-c:v","libx264","-preset","veryfast","-crf","23","-c:a","aac","-b:a","160k","-movflags","+faststart",str(output)])
+            export = db.execute(
+                "SELECT e.*, c.start_seconds, c.end_seconds, c.title, c.id AS clip_id, a.path AS source_path "
+                "FROM clip_exports e JOIN clips c ON c.id=e.clip_id JOIN projects p ON p.id=c.project_id "
+                "JOIN assets a ON a.id=p.asset_id WHERE e.id=?",
+                (export_id,),
+            ).fetchone()
+        if not export:
+            raise RuntimeError("Export record disappeared before rendering.")
+        if cancel_requested(job_id):
+            update_export(export_id, status="cancelled", error="Cancelled before rendering")
+            update_job(job_id, status="cancelled", stage="cancelled", message="Export cancelled")
+            return
+
+        width, height = preset_geometry(export["preset"])
+        duration = max(0.1, export["end_seconds"] - export["start_seconds"])
+        output = OUTPUTS / f"{export['clip_id']}-{export['preset'].replace(':', 'x')}-{export_id[:8]}.mp4"
+
+        update_export(export_id, status="rendering", error=None)
+        update_job(job_id, status="processing", stage="rendering", progress=10, message=f"Rendering {export['preset']} MP4 with FFmpeg")
+        run([
+            "ffmpeg", "-y", "-ss", str(export["start_seconds"]), "-i", export["source_path"], "-t", str(duration),
+            "-vf", f"scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height},setsar=1",
+            "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+            "-c:a", "aac", "-b:a", "160k", "-movflags", "+faststart", str(output),
+        ])
+
+        update_export(export_id, status="validating")
+        update_job(job_id, stage="quality_check", progress=70, message="Checking the render for broken frames, silence and size")
+        report = inspect_render(output, duration, export["preset"])
+
+        if cancel_requested(job_id):
+            output.unlink(missing_ok=True)
+            update_export(export_id, status="cancelled", error="Cancelled after rendering")
+            update_job(job_id, status="cancelled", stage="cancelled", message="Export cancelled")
+            return
+
+        rendered = report["metrics"]
+        if report["status"] == "fail":
+            output.unlink(missing_ok=True)
+            update_export(export_id, status="failed", quality_report=json.dumps(report), error=report["summary"])
+            update_job(job_id, status="failed", stage="quality_check", error=report["summary"], message="The render failed automated quality inspection")
+            with connect() as db:
+                db.execute("UPDATE clips SET status='export_failed' WHERE id=?", (export["clip_id"],))
+            return
+
         with connect() as db:
-            db.execute("UPDATE clips SET output_path=?,status='exported' WHERE id=?",(str(output),clip_id))
-        update_job(job_id,status="completed",stage="complete",progress=100,message="MP4 export is ready to download")
+            db.execute(
+                "UPDATE clip_exports SET status='ready',output_path=?,width=?,height=?,duration_seconds=?,quality_report=?,error=NULL WHERE id=?",
+                (str(output), rendered["width"], rendered["height"], rendered["duration_seconds"], json.dumps(report), export_id),
+            )
+            db.execute("UPDATE clips SET output_path=?,status='exported' WHERE id=?", (str(output), export["clip_id"]))
+        update_job(job_id, status="completed", stage="complete", progress=100, message=report["summary"] + " Ready to download.")
     except Exception as exc:
-        update_job(job_id,status="failed",stage="failed",error=str(exc),message="MP4 rendering failed")
+        if output is not None:
+            output.unlink(missing_ok=True)
+        update_export(export_id, status="failed", error=str(exc))
+        update_job(job_id, status="failed", stage="failed", error=str(exc), message="MP4 rendering failed")
 
 
 def enqueue(job_id: str) -> None:
@@ -192,7 +333,7 @@ def enqueue(job_id: str) -> None:
         return
     options=json.loads(row["options"])
     if options.get("kind")=="export":
-        POOL.submit(process_export_job,job_id,options["clip_id"])
+        POOL.submit(process_export_job,job_id,options["export_id"])
     else:
         POOL.submit(process_job,job_id)
 
@@ -210,6 +351,22 @@ class ClipEdit(BaseModel):
     title: str | None = Field(default=None,max_length=120)
 
 
+class ExportRequest(BaseModel):
+    preset: str = "9:16"
+
+
+class PackagingRequest(BaseModel):
+    destination: str
+    title: str = Field(default="", max_length=300)
+    description: str = Field(default="", max_length=6000)
+    hashtags: list[str] = Field(default_factory=list)
+
+
+class ApprovalRequest(BaseModel):
+    destination: str
+    approved: bool = True
+
+
 @app.on_event("startup")
 def startup() -> None:
     init_db()
@@ -221,7 +378,7 @@ def startup() -> None:
 
 @app.get("/api/health")
 def health() -> dict[str,Any]:
-    return {"status":"ok","version":"0.2.0","capabilities":["persistent-sqlite","media-upload","ffprobe-validation","ffmpeg-audio-extraction","faster-whisper-transcription","ranked-clip-candidates","mp4-export"]}
+    return {"status":"ok","version":"0.3.0","capabilities":["persistent-sqlite","media-upload","ffprobe-validation","ffmpeg-audio-extraction","faster-whisper-transcription","ranked-clip-candidates","mp4-export","export-presets","render-quality-inspection","packaging-approval","job-cancellation"]}
 
 
 @app.get("/api/assets")
@@ -301,16 +458,63 @@ def edit_clip(clip_id: str,payload: ClipEdit) -> dict[str,Any]:
     item=dict(updated); item["score_breakdown"]=json.loads(item["score_breakdown"]); return item
 
 
+@app.get("/api/export-presets")
+def list_export_presets() -> dict[str,Any]:
+    return {"presets":preset_list()}
+
+
+@app.get("/api/destinations")
+def list_destinations() -> list[dict[str,Any]]:
+    return [{"destination":key,**value} for key,value in DESTINATIONS.items()]
+
+
 @app.post("/api/clips/{clip_id}/export")
-def export_clip(clip_id: str) -> dict[str,Any]:
+def export_clip(clip_id: str, payload: ExportRequest | None = Body(default=None)) -> dict[str,Any]:
+    preset=(payload.preset if payload else "9:16") or "9:16"
+    try:
+        width,height=preset_geometry(preset)
+    except ValueError as exc:
+        raise HTTPException(status_code=422,detail=str(exc)) from exc
     with connect() as db:
         clip=db.execute("SELECT * FROM clips WHERE id=?",(clip_id,)).fetchone()
         if not clip:
             raise HTTPException(status_code=404,detail="Clip not found.")
-        job_id=str(uuid.uuid4()); timestamp=now()
-        db.execute("INSERT INTO jobs VALUES(?,?,?,?,?,?,?,?,?,?)",(job_id,clip["project_id"],"queued","queued",0,"Waiting for a render worker",json.dumps({"kind":"export","clip_id":clip_id}),None,timestamp,timestamp))
+        existing=db.execute("SELECT * FROM clip_exports WHERE clip_id=? AND preset=? AND status IN ('queued','rendering','validating') ORDER BY created_at DESC LIMIT 1",(clip_id,preset)).fetchone()
+        if existing:
+            return {"clip_id":clip_id,"export_id":existing["id"],"job_id":existing["job_id"],"preset":preset,"status":existing["status"],"idempotent":True}
+        export_id,job_id=str(uuid.uuid4()),str(uuid.uuid4()); timestamp=now()
+        db.execute("INSERT INTO clip_exports(id,clip_id,preset,status,job_id,output_path,width,height,duration_seconds,quality_report,error,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (export_id,clip_id,preset,"queued",job_id,None,width,height,None,None,None,timestamp,timestamp))
+        db.execute("INSERT INTO jobs VALUES(?,?,?,?,?,?,?,?,?,?)",(job_id,clip["project_id"],"queued","queued",0,f"Waiting for a render worker ({preset})",json.dumps({"kind":"export","clip_id":clip_id,"export_id":export_id,"preset":preset}),None,timestamp,timestamp))
     enqueue(job_id)
-    return {"clip_id":clip_id,"job_id":job_id,"status":"queued"}
+    return {"clip_id":clip_id,"export_id":export_id,"job_id":job_id,"preset":preset,"status":"queued","idempotent":False}
+
+
+def serialize_export(row: sqlite3.Row) -> dict[str,Any]:
+    item=dict(row)
+    report=item.get("quality_report")
+    item["quality_report"]=json.loads(report) if report else None
+    item["download_url"]=f"/api/exports/{item['id']}/download" if item["status"]=="ready" else None
+    return item
+
+
+@app.get("/api/clips/{clip_id}/exports")
+def list_clip_exports(clip_id: str) -> list[dict[str,Any]]:
+    with connect() as db:
+        rows=db.execute("SELECT * FROM clip_exports WHERE clip_id=? ORDER BY created_at DESC",(clip_id,)).fetchall()
+    return [serialize_export(row) for row in rows]
+
+
+@app.get("/api/exports/{export_id}/download")
+def download_export(export_id: str) -> FileResponse:
+    with connect() as db:
+        row=db.execute("SELECT e.*,c.title FROM clip_exports e JOIN clips c ON c.id=e.clip_id WHERE e.id=?",(export_id,)).fetchone()
+    if not row or row["status"]!="ready" or not row["output_path"] or not Path(row["output_path"]).is_file():
+        raise HTTPException(status_code=404,detail="This export is not available for download.")
+    report=json.loads(row["quality_report"]) if row["quality_report"] else None
+    if report and report.get("status")=="fail":
+        raise HTTPException(status_code=409,detail="This export failed quality inspection and cannot be downloaded.")
+    return FileResponse(row["output_path"],media_type="video/mp4",filename=f"{row['title']}-{row['preset'].replace(':','x')}.mp4")
 
 
 @app.get("/api/clips/{clip_id}/download")
@@ -339,3 +543,160 @@ def project_source(project_id: str) -> FileResponse:
     if not row or not Path(row["path"]).is_file():
         raise HTTPException(status_code=404, detail="Source media is unavailable.")
     return FileResponse(row["path"], media_type="video/mp4", filename=row["filename"])
+
+
+def default_copy(clip: sqlite3.Row) -> tuple[str, str, list[str]]:
+    """Start packaging from what the transcript actually says, never from invented claims."""
+    words = " ".join(str(clip["transcript"]).split())
+    description = (words[:260] + "…") if len(words) > 260 else words
+    return clip["title"], description, []
+
+
+def latest_ready_export(db: sqlite3.Connection, clip_id: str) -> sqlite3.Row | None:
+    return db.execute(
+        "SELECT id,preset,status,quality_report,created_at FROM clip_exports "
+        "WHERE clip_id=? AND status='ready' ORDER BY created_at DESC LIMIT 1",
+        (clip_id,),
+    ).fetchone()
+
+
+def packaging_payload(db: sqlite3.Connection, clip: sqlite3.Row, destination: str) -> dict[str, Any]:
+    row = db.execute("SELECT * FROM clip_packaging WHERE clip_id=? AND destination=?", (clip["id"], destination)).fetchone()
+    if row:
+        title, description = row["title"], row["description"]
+        tags = json.loads(row["hashtags"])
+        approved, approved_at = bool(row["approved"]), row["approved_at"]
+    else:
+        title, description, tags = default_copy(clip)
+        approved, approved_at = False, None
+    validation = validate_packaging(destination=destination, title=title, description=description, hashtags=tags)
+    export = latest_ready_export(db, clip["id"])
+    quality = json.loads(export["quality_report"]) if export and export["quality_report"] else None
+    gate = approval_gate(
+        quality_status=quality["status"] if quality else None,
+        packaging_valid=validation["valid"],
+        destination=destination,
+    )
+    return {
+        "clip_id": clip["id"],
+        "clip_title": clip["title"],
+        "project_id": clip["project_id"],
+        "destination": destination,
+        "destination_label": DESTINATIONS[destination]["label"],
+        "title": title,
+        "description": description,
+        "hashtags": validation["hashtags"],
+        "approved": approved,
+        "approved_at": approved_at,
+        "validation": validation,
+        "approval_gate": gate,
+        "eligible": approved and gate["allowed"],
+        "export": {
+            "id": export["id"],
+            "preset": export["preset"],
+            "quality_status": quality["status"] if quality else None,
+            "quality_summary": quality["summary"] if quality else None,
+            "download_url": f"/api/exports/{export['id']}/download",
+        } if export else None,
+    }
+
+
+@app.get("/api/clips/{clip_id}/packaging")
+def get_packaging(clip_id: str) -> list[dict[str, Any]]:
+    with connect() as db:
+        clip = db.execute("SELECT * FROM clips WHERE id=?", (clip_id,)).fetchone()
+        if not clip:
+            raise HTTPException(status_code=404, detail="Clip not found.")
+        return [packaging_payload(db, clip, destination) for destination in DESTINATIONS]
+
+
+@app.put("/api/clips/{clip_id}/packaging")
+def save_packaging(clip_id: str, payload: PackagingRequest) -> dict[str, Any]:
+    if payload.destination not in DESTINATIONS:
+        raise HTTPException(status_code=422, detail=f"Unknown destination '{payload.destination}'.")
+    with connect() as db:
+        clip = db.execute("SELECT * FROM clips WHERE id=?", (clip_id,)).fetchone()
+        if not clip:
+            raise HTTPException(status_code=404, detail="Clip not found.")
+        existing = db.execute("SELECT * FROM clip_packaging WHERE clip_id=? AND destination=?", (clip_id, payload.destination)).fetchone()
+        tags = validate_packaging(destination=payload.destination, title=payload.title, description=payload.description, hashtags=payload.hashtags)["hashtags"]
+        changed = bool(existing) and (
+            existing["title"] != payload.title.strip()
+            or existing["description"] != payload.description.strip()
+            or json.loads(existing["hashtags"]) != tags
+        )
+        stamp = now()
+        db.execute(
+            "INSERT INTO clip_packaging(clip_id,destination,title,description,hashtags,approved,approved_at,updated_at) VALUES(?,?,?,?,?,0,NULL,?) "
+            "ON CONFLICT(clip_id,destination) DO UPDATE SET title=excluded.title,description=excluded.description,hashtags=excluded.hashtags,updated_at=excluded.updated_at",
+            (clip_id, payload.destination, payload.title.strip(), payload.description.strip(), json.dumps(tags), stamp),
+        )
+        if changed:
+            # Approval applies to the exact copy the creator reviewed, so editing revokes it.
+            db.execute("UPDATE clip_packaging SET approved=0,approved_at=NULL WHERE clip_id=? AND destination=?", (clip_id, payload.destination))
+        return packaging_payload(db, clip, payload.destination)
+
+
+@app.post("/api/clips/{clip_id}/packaging/approval")
+def approve_packaging(clip_id: str, payload: ApprovalRequest) -> dict[str, Any]:
+    if payload.destination not in DESTINATIONS:
+        raise HTTPException(status_code=422, detail=f"Unknown destination '{payload.destination}'.")
+    with connect() as db:
+        clip = db.execute("SELECT * FROM clips WHERE id=?", (clip_id,)).fetchone()
+        if not clip:
+            raise HTTPException(status_code=404, detail="Clip not found.")
+        current = packaging_payload(db, clip, payload.destination)
+        if payload.approved and not current["approval_gate"]["allowed"]:
+            raise HTTPException(status_code=409, detail=" ".join(current["approval_gate"]["blockers"]))
+        stamp = now()
+        db.execute(
+            "INSERT OR IGNORE INTO clip_packaging(clip_id,destination,title,description,hashtags,approved,approved_at,updated_at) VALUES(?,?,?,?,?,0,NULL,?)",
+            (clip_id, payload.destination, current["title"], current["description"], json.dumps(current["hashtags"]), stamp),
+        )
+        db.execute(
+            "UPDATE clip_packaging SET approved=?,approved_at=?,updated_at=? WHERE clip_id=? AND destination=?",
+            (1 if payload.approved else 0, stamp if payload.approved else None, stamp, clip_id, payload.destination),
+        )
+        return packaging_payload(db, clip, payload.destination)
+
+
+@app.get("/api/publish/packages")
+def publish_packages() -> dict[str, Any]:
+    """Approved delivery packages.
+
+    This deliberately returns files and copy for a manual upload. No platform connection
+    exists in this build, so nothing is scheduled or posted on the creator's behalf.
+    """
+    packages: list[dict[str, Any]] = []
+    with connect() as db:
+        rows = db.execute(
+            "SELECT p.clip_id,p.destination,p.approved_at,c.title AS clip_title,c.project_id,c.start_seconds,c.end_seconds "
+            "FROM clip_packaging p JOIN clips c ON c.id=p.clip_id WHERE p.approved=1 ORDER BY p.approved_at DESC"
+        ).fetchall()
+        for row in rows:
+            clip = db.execute("SELECT * FROM clips WHERE id=?", (row["clip_id"],)).fetchone()
+            payload = packaging_payload(db, clip, row["destination"])
+            payload["clip_title"] = row["clip_title"]
+            payload["approved_at"] = row["approved_at"]
+            packages.append(payload)
+    return {
+        "packages": packages,
+        "note": "Approved export packages for manual upload. No platform account is connected in this build, so nothing is posted automatically.",
+    }
+
+
+@app.post("/api/jobs/{job_id}/cancel")
+def cancel_job(job_id: str) -> dict[str, Any]:
+    with connect() as db:
+        row = db.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Processing job not found.")
+        if row["status"] in {"completed", "failed", "cancelled"}:
+            raise HTTPException(status_code=409, detail=f"This job is already {row['status']}.")
+        stamp = now()
+        if row["status"] == "queued":
+            db.execute("UPDATE jobs SET status='cancelled',stage='cancelled',message='Cancelled before it started',updated_at=? WHERE id=?", (stamp, job_id))
+            db.execute("UPDATE projects SET status='cancelled',updated_at=? WHERE id=?", (stamp, row["project_id"]))
+            return {"id": job_id, "status": "cancelled"}
+        db.execute("UPDATE jobs SET status='cancelling',message='Cancellation requested — the worker stops at the next checkpoint',updated_at=? WHERE id=?", (stamp, job_id))
+        return {"id": job_id, "status": "cancelling"}

@@ -19,10 +19,16 @@ This is the canonical product inventory. A feature is implemented only when its 
 | Highlight discovery | Transcript-window candidates and score breakdown | Working foundation; heuristic only, not trained virality prediction |
 | Candidate review | Ranked candidates, source preview, transcript and timecodes | Working foundation; verify full journey |
 | Clip editing | Adjust start/end/title | Working foundation; add split, merge, undo and versions |
-| MP4 export | FFmpeg H.264/AAC vertical render | Working foundation; add output validation and layout presets |
-| Download | Download rendered clip | Working foundation |
+| Multi-preset export | FFmpeg H.264/AAC render at 9:16 (1080×1920), 1:1 (1080×1080) and 16:9 (1920×1080) with deterministic scale/crop | Working foundation |
+| Render quality inspection | FFprobe duration/size/codec checks plus blackdetect, freezedetect and volumedetect, recorded per export | Working foundation; add caption, framing and frame-sampling checks with licensed fixtures |
+| Download | Download a validated render; failed inspections are blocked | Working foundation |
+| Packaging validation | Per-destination title/description/hashtag limits, duplicate and character rules | Working foundation |
+| Approval gate | Approval requires a passing/warned render and valid packaging; editing copy revokes approval | Working foundation |
+| Delivery packages | Approved package + validated file listed in Publish Studio for manual upload | Working foundation; platform adapters remain planned |
+| Job cancellation | Queued jobs cancel immediately; running jobs stop at checkpoints | Working foundation; add worker preemption |
+| Export idempotency | Repeated export requests for the same clip and preset reuse the active render | Working foundation |
 
-P0 acceptance: a rights-cleared video completes upload → processing → review → edit → export → download; job recovery and retry are safe; clip bounds stay within source duration; output decodes and has expected duration, dimensions and audio.
+P0 acceptance: a rights-cleared video completes upload → processing → review → edit → export → quality inspection → download → packaging → approval; job recovery, cancellation and retry are safe; clip bounds stay within source duration; output decodes and has expected duration, dimensions and audio. Media-dependent acceptance still needs licensed CI fixtures — see the open roadmap items.
 
 ## P1 — Analysis intelligence
 - Word-level alignment, language detection and transcript correction.

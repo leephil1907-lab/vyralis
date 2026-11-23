@@ -209,6 +209,7 @@
 .vy-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;font:500 8.5px/1 var(--label);letter-spacing:1.5px;text-transform:uppercase;border:1px solid transparent}
 .vy-chip-live{background:#E6F4EC;color:#1F7A53;border-color:#C6E6D6}
 .vy-chip-next{background:var(--violet-soft);color:var(--violet);border-color:#DCC8F0}
+.vy-chip-limited{background:#FDEDE7;color:#B4442C;border-color:#F7D3C5}
 .vy-steps{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0}
 .vy-step{padding:22px 16px 4px;position:relative}
 .vy-step+.vy-step{border-left:1px solid rgba(74,30,122,.1)}

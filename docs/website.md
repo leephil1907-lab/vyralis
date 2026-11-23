@@ -50,7 +50,7 @@ Fonts: Poppins (display), DM Sans (body), Instrument Serif (italic accents), Spa
 4. Capability marquee.
 5. Pipeline — the five real steps (import, listen, rank, review, export) plus a ranked-candidate preview and a score-breakdown panel, both explicitly labelled as interface previews.
 6. Capabilities — the working foundation only.
-7. Studio surfaces — live versus planned.
+7. Studio surfaces — the six studios (Clip, Edit, Creative, Growth, Publish, Analytics), each labelled live, limited or planned.
 8. Roadmap — release-scoped, no dates promised.
 9. Principles, closing CTA, footer.
 

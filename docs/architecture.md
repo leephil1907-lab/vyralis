@@ -30,6 +30,23 @@ A project owns media assets, transcripts, analysis runs, candidate clips, edit d
 - **Local mode:** browser talks to a loopback API; files and model inference stay on the user's machine.
 - **Hosted mode:** a separate authenticated deployment with object storage, worker isolation, quotas and explicit user consent for upload. Hosted processing must not be presented as local processing.
 
+## Delivery pipeline (implemented)
+
+Renders are deterministic and inspectable:
+
+1. **Preset geometry** — `backend/app/delivery.py` owns the only source of truth for 9:16,
+   1:1 and 16:9 frame sizes; FFmpeg scales to cover and crops to the preset.
+2. **Inspection** — the rendered file is probed for duration, frame size, codecs and size,
+   then measured with `blackdetect`, `freezedetect` and `volumedetect`.
+3. **Decision** — `evaluate_export` produces a `pass` / `warn` / `fail` report with one entry
+   per check. A `fail` deletes the file, marks the export failed and blocks download; `warn`
+   keeps the file and explains the risk. Reports are stored with the export, not regenerated
+   from guesswork.
+4. **Packaging** — copy is validated against published destination limits. Approval requires a
+   non-failing render and valid copy; editing the copy revokes approval.
+5. **Delivery** — approved packages are listed with their validated file for manual upload.
+   No platform adapter exists, so no publishing call is ever simulated.
+
 ## Quality gates
 
 - Unit tests for timecode conversion, clip boundary logic and crop geometry.

@@ -15,9 +15,11 @@ The canonical scope is in docs/feature-registry.md. A feature is complete only a
 - [x] FFmpeg vertical MP4 export and download endpoint.
 - [x] Startup recovery for queued/processing jobs.
 - [ ] Verify the full flow against a representative rights-cleared media test fixture in CI.
-- [ ] Add output probing, media-quality checks and render regression tests.
+- [x] Add output probing and media-quality checks (duration, dimensions, codecs, black frames, frozen frames, loudness) with a stored report per export.
+- [ ] Add caption, framing and frame-sampling checks plus render regression tests against licensed fixtures.
 - [ ] Harden MIME sniffing, path isolation, upload quotas and cleanup.
-- [ ] Add cancellation, idempotency, bounded queue semantics and job-attempt history.
+- [x] Add job cancellation with worker checkpoints and idempotent export requests.
+- [ ] Add bounded queue semantics, worker preemption and job-attempt history.
 
 ## Release 1 — Core clipping quality
 - [ ] Improve transcript candidate segmentation and context completeness.
@@ -27,7 +29,8 @@ The canonical scope is in docs/feature-registry.md. A feature is complete only a
 - [ ] Visual-event and subject analysis adapter.
 - [ ] Evidence-backed score dimensions, confidence and manual feedback.
 - [ ] Candidate deduplication, configurable count and duration presets.
-- [ ] 9:16, 1:1 and 16:9 export presets.
+- [x] 9:16, 1:1 and 16:9 export presets.
+- [x] Destination packaging validation, approval gate and revocable approval (manual delivery packages only).
 - [ ] Word-timed caption generation and subtitle burn-in.
 - [ ] Export validation and batch rendering.
 

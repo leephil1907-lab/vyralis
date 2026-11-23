@@ -5,34 +5,41 @@ import { NavLink, Route, Routes, useLocation, useNavigate } from "react-router-d
 import {
   Activity, ArrowUpRight, BarChart3, Bell, CalendarDays,
   Check, ChevronDown, CircleHelp, Clapperboard, Compass, Film,
-  FolderOpen, Gauge, HardDrive, Layers3, Link2, ListVideo, Menu, MessageSquareText,
+  FolderOpen, Gauge, HardDrive, Layers3, Link2, ListVideo, Menu,
   MoreHorizontal, Play, Plus, Search, Settings2, ShieldCheck, Sparkles, Subtitles, Network,
-  WandSparkles, X, Youtube, Instagram, Radio, SlidersHorizontal, Zap, Palette,
+  WandSparkles, X, Youtube, Radio, SlidersHorizontal, Zap, Palette,
   Scissors, Upload, Video, Captions, ChartNoAxesCombined, AudioLines
 } from "lucide-react";
 import { api, type Health, type MediaAsset } from "./lib/api";
 import ReviewPage from "./pages/ReviewPage";
 import LandingPage from "./pages/LandingPage";
+import PublishPage from "./pages/PublishPage";
 
 const navGroups = [
   { label: "WORKSPACE", items: [
     { to: "/studio", label: "Dashboard", icon: Layers3 },
     { to: "/projects", label: "Projects", icon: FolderOpen },
+    { to: "/settings", label: "Settings", icon: Settings2 },
+  ]},
+  { label: "CLIP STUDIO", items: [
     { to: "/create", label: "Create clips", icon: Clapperboard },
+  ]},
+  { label: "EDIT STUDIO", items: [
     { to: "/editor", label: "Video editor", icon: Scissors },
   ]},
-  { label: "GROW & PUBLISH", items: [
-    { to: "/publishing", label: "Publishing", icon: Radio },
-    { to: "/calendar", label: "Content calendar", icon: CalendarDays },
-    { to: "/analytics", label: "Analytics", icon: ChartNoAxesCombined },
-    { to: "/growth", label: "Growth intelligence", icon: Compass },
-    { to: "/trends", label: "Trend & niche radar", icon: Activity },
+  { label: "CREATIVE STUDIO", items: [
+    { to: "/brand", label: "Brand kit", icon: Palette },
     { to: "/storylab", label: "StoryLab", icon: WandSparkles },
     { to: "/canvas", label: "Workflow canvas", icon: Network },
   ]},
-  { label: "YOUR BRAND", items: [
-    { to: "/brand", label: "Brand kit", icon: Palette },
-    { to: "/settings", label: "Settings", icon: Settings2 },
+  { label: "GROWTH INTELLIGENCE", items: [
+    { to: "/growth", label: "Growth intelligence", icon: Compass },
+    { to: "/trends", label: "Trend & niche radar", icon: Activity },
+    { to: "/analytics", label: "Analytics", icon: ChartNoAxesCombined },
+  ]},
+  { label: "PUBLISH STUDIO", items: [
+    { to: "/publishing", label: "Publishing", icon: Radio },
+    { to: "/calendar", label: "Content calendar", icon: CalendarDays },
   ]},
 ];
 const titles: Record<string,string> = {
@@ -120,8 +127,6 @@ function App() {
 
   function Editor(){return page(<><PageHeader eyebrow="VIDEO EDITOR" heading={<>Make the cut <em>your own.</em></>} description="A focused editing workspace for timing, framing, captions and finishing."/><Glass className="editor-shell"><div className="editor-toolbar"><span><Scissors size={15}/> Untitled sequence</span><span className="editor-pill">No clip selected</span><button className="button-secondary" onClick={()=>navigate("/create")}>Choose source</button></div><Empty icon={Video} title="Your editing canvas is ready" copy="Create or import a clip first. The timeline editor, transcript-linked trimming, split/merge and smart reframing are not connected yet."/></Glass><div className="feature-row">{[{icon:ListVideo,title:"Transcript timeline",copy:"Navigate by spoken words and timestamps."},{icon:Subtitles,title:"Caption styling",copy:"Word timing, emphasis and language variants."},{icon:Compass,title:"Smart framing",copy:"Face and speaker-aware vertical composition."}].map(x=><Glass className="mini-feature" key={x.title}><x.icon size={19}/><b>{x.title}</b><small>{x.copy}</small></Glass>)}</div></>);}
 
-  function Publishing(){return page(<><PageHeader eyebrow="PUBLISHING STUDIO" heading={<>One clip. Every <em>channel.</em></>} description="Prepare platform-ready versions and manage your connected destinations."/><div className="platform-grid">{[{name:"YouTube",detail:"Shorts and video publishing",icon:Youtube},{name:"Instagram",detail:"Reels and feed publishing",icon:Instagram},{name:"TikTok",detail:"Content Posting API",icon:Video},{name:"Facebook",detail:"Pages and Reels",icon:MessageSquareText}].map(p=><Glass className="platform-card" key={p.name}><div className="platform-icon"><p.icon size={22}/></div><div><b>{p.name}</b><small>{p.detail}</small></div><span className="status-tag muted">Not connected</span><button className="button-secondary" onClick={()=>setNotice(p.name+" authorization is not configured yet. No account has been connected.")}>Connect</button></Glass>)}</div>{notice&&<div className="notice"><ShieldCheck size={15}/>{notice}</div>}<div className="integration-note"><ShieldCheck size={16}/><div><b>Official authorization only</b><p>Publishing will use platform OAuth and approved APIs. Password collection, simulated delivery and unsupported auto-posting are excluded.</p></div></div></>);}
-
   function Calendar(){return page(<><PageHeader eyebrow="CONTENT PLANNER" heading={<>Make consistency <em>feel effortless.</em></>} description="Plan your publishing rhythm and keep upcoming content in view."/><Glass className="calendar-shell"><div className="calendar-top"><div><span className="micro-label">PUBLISHING SCHEDULE</span><h2>Schedule overview</h2></div><span className="editor-pill">No scheduled posts</span></div><Empty icon={CalendarDays} title="Your calendar is clear" copy="Once a clip is approved and a channel is connected, scheduled posts will appear here." action={<button className="button-secondary" onClick={()=>navigate("/publishing")}>Connect a channel <ArrowUpRight size={14}/></button>}/></Glass></>);}
 
   function Analytics(){return page(<><PageHeader eyebrow="PERFORMANCE STUDIO" heading={<>Know what’s <em>resonating.</em></>} description="Understand post performance and turn real results into stronger creative decisions."/><div className="analytics-grid">{[{label:"VIEWS",icon:Play},{label:"ENGAGEMENT",icon:Activity},{label:"AUDIENCE RETENTION",icon:BarChart3},{label:"TOP CONTENT",icon:Gauge}].map(m=><Glass className="metric-card" key={m.label}><span>{m.label}<m.icon size={15}/></span><strong className="metric-placeholder">—</strong><small>Waiting for connected channel data</small></Glass>)}</div><Glass className="chart-placeholder"><div className="card-top"><div><span className="micro-label">PERFORMANCE OVER TIME</span><h3>Content insights</h3></div><SlidersHorizontal size={17}/></div><Empty icon={ChartNoAxesCombined} title="Your insights will build here" copy="Connect a supported social account and publish content to see verified metrics. No sample analytics are being shown."/></Glass></>);}
@@ -145,7 +150,7 @@ function App() {
     </aside>
     {mobileNav&&<button className="mobile-scrim" aria-label="Close navigation" onClick={()=>setMobileNav(false)}/>}
     <main className="main"><header className="topbar"><div className="topbar-left"><button className="mobile-menu" onClick={()=>setMobileNav(v=>!v)} aria-label="Toggle menu"><Menu size={19}/></button><div className="breadcrumb">Workspace <span>/</span> {title}</div></div><div className="top-actions"><div className="engine-pill"><span className={"status-dot "+(health?"online":"")}/>{health?"ENGINE ONLINE":"ENGINE OFFLINE"}</div><button className="top-icon" aria-label="Help"><CircleHelp size={17}/></button><button className="top-icon" aria-label="Notifications"><Bell size={17}/></button><div className="avatar-mini">V</div></div></header>
-      <div className="content"><AnimatePresence mode="wait"><Routes location={location} key={location.pathname}><Route path="/studio" element={<Dashboard/>}/><Route path="/" element={<LandingPage/>}/><Route path="/projects" element={<Projects/>}/><Route path="/create" element={<Create/>}/><Route path="/editor" element={<Editor/>}/><Route path="/review/:projectId" element={<ReviewPage/>}/><Route path="/publishing" element={<Publishing/>}/><Route path="/calendar" element={<Calendar/>}/><Route path="/analytics" element={<Analytics/>}/><Route path="/growth" element={<Growth/>}/><Route path="/trends" element={<Trends/>}/><Route path="/storylab" element={<StoryLab/>}/><Route path="/canvas" element={<Canvas/>}/><Route path="/brand" element={<Brand/>}/><Route path="/settings" element={<Settings/>}/><Route path="*" element={<Dashboard/>}/></Routes></AnimatePresence><footer className="footer"><span>VYRALIS STUDIO <i>· Every moment has a story.</i></span><span className="footer-status"><span className={"status-dot "+(health?"online":"")}/>{health?"Local engine responding":"Local engine not connected"}</span><span>STUDIO / 0.2</span></footer></div>
+      <div className="content"><AnimatePresence mode="wait"><Routes location={location} key={location.pathname}><Route path="/studio" element={<Dashboard/>}/><Route path="/" element={<LandingPage/>}/><Route path="/projects" element={<Projects/>}/><Route path="/create" element={<Create/>}/><Route path="/editor" element={<Editor/>}/><Route path="/review/:projectId" element={<ReviewPage/>}/><Route path="/publishing" element={<PublishPage/>}/><Route path="/calendar" element={<Calendar/>}/><Route path="/analytics" element={<Analytics/>}/><Route path="/growth" element={<Growth/>}/><Route path="/trends" element={<Trends/>}/><Route path="/storylab" element={<StoryLab/>}/><Route path="/canvas" element={<Canvas/>}/><Route path="/brand" element={<Brand/>}/><Route path="/settings" element={<Settings/>}/><Route path="*" element={<Dashboard/>}/></Routes></AnimatePresence><footer className="footer"><span>VYRALIS STUDIO <i>· Every moment has a story.</i></span><span className="footer-status"><span className={"status-dot "+(health?"online":"")}/>{health?"Local engine responding":"Local engine not connected"}</span><span>STUDIO / 0.3</span></footer></div>
     </main>
     {notice&&!location.pathname.includes("create")&&!location.pathname.includes("publishing")&&<div className="toast" onClick={()=>setNotice("")}>{notice}<X size={14}/></div>}
   </div>;

@@ -3,9 +3,9 @@ import type { ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "react-router-dom";
 import {
-  ArrowRight, ArrowUpRight, AudioLines, Captions, ChartNoAxesCombined,
+  ArrowRight, ArrowUpRight, AudioLines, ChartNoAxesCombined,
   Clapperboard, Film, Layers3, ListChecks, Menu, Network, Palette, Play,
-  Radio, RotateCcw, Scissors, ShieldCheck, Sparkles, Upload, X,
+  Compass, Radio, RotateCcw, Scissors, ShieldCheck, Sparkles, Upload, X,
 } from "lucide-react";
 import "../landing.css";
 
@@ -34,8 +34,8 @@ const pipeline = [
     copy: "Compare candidates, read the transcript, then set start, end and title yourself — the final cut stays yours.",
   },
   {
-    icon: Film, title: "Export", status: "live" as const,
-    copy: "A single FFmpeg pass renders a vertical H.264/AAC MP4 that you download and publish where you choose.",
+    icon: Film, title: "Render & check", status: "live" as const,
+    copy: "Pick 9:16, 1:1 or 16:9. FFmpeg renders it, then duration, frame size, codecs, black/frozen frames and loudness are verified before download.",
   },
 ];
 
@@ -68,17 +68,17 @@ const capabilities = [
   },
   {
     icon: RotateCcw, title: "Jobs that survive interruption",
-    copy: "Projects, jobs and clips live in SQLite, so queued work is recovered when a worker restarts.",
+    copy: "Projects, jobs and clips live in SQLite, so queued work is recovered when a worker restarts, and cancellation is honoured at checkpoints.",
   },
 ];
 
 const surfaces = [
-  { icon: Clapperboard, label: "Clip studio", copy: "Bring a source in and start the pipeline", state: "Live" },
-  { icon: ListChecks, label: "Review & rank", copy: "Compare candidates, transcripts and timecodes", state: "Live" },
-  { icon: Scissors, label: "Video editor", copy: "Frame-accurate timeline, split and reframe", state: "Planned" },
-  { icon: Captions, label: "Caption lab", copy: "Word-timed captions, styles and safe zones", state: "Planned" },
-  { icon: Palette, label: "Brand kit", copy: "Palette, type, watermark and export presets", state: "Planned" },
-  { icon: Radio, label: "Publishing", copy: "Approved platform adapters, human approval first", state: "Planned" },
+  { icon: Clapperboard, label: "Clip Studio", copy: "Import, transcribe, rank candidates and trim the cut", state: "Live" },
+  { icon: Scissors, label: "Edit Studio", copy: "Frame-accurate timeline, captions, reframe and templates", state: "Planned" },
+  { icon: Palette, label: "Creative Studio", copy: "StoryLab planning, brand kits and the workflow canvas", state: "Planned" },
+  { icon: Compass, label: "Growth Intelligence", copy: "Profile audits, hooks and ideas once authorized data is connected", state: "Planned" },
+  { icon: Radio, label: "Publish Studio", copy: "Validated packaging and approved delivery packages", state: "Limited" },
+  { icon: ChartNoAxesCombined, label: "Analytics Studio", copy: "Performance learning from authorized platform metrics only", state: "Planned" },
 ];
 
 const roadmap = [
@@ -166,7 +166,7 @@ export default function LandingPage() {
     <div className="vy-site" id="top">
       <div className="vy-announce">
         <span>
-          <i className="vy-dot" /> <b>Studio 0.2</b> — the local clipping pipeline is live: import, transcribe, rank, review, export.
+          <i className="vy-dot" /> <b>Studio 0.3</b> — the local clipping pipeline is live: import, transcribe, rank, review, render, package.
           <a href="/studio">Open the studio <ArrowUpRight size={11} style={{ display: "inline", verticalAlign: "-1px" }} /></a>
         </span>
       </div>
@@ -410,9 +410,9 @@ export default function LandingPage() {
               <div>
                 <span className="vy-eyebrow"><i className="vy-dot" />Inside the studio</span>
                 <h2 className="vy-h2" style={{ margin: "16px 0 18px" }}>A workspace that<br />tells you the truth.</h2>
-                <p className="vy-lede" style={{ maxWidth: 380, marginBottom: 26 }}>
-                  The interface marks what is connected, what is pending and what needs you.
-                  Open the studio and the local engine reports its own state.
+                <p className="vy-lede" style={{ maxWidth: 400, marginBottom: 26 }}>
+                  Six studios, one workspace. Each one declares whether it is live, limited or planned —
+                  the app never dresses a preview up as a finished feature.
                 </p>
                 <Link className="vy-btn vy-btn-ghost" to="/studio">
                   Enter the workspace <ArrowUpRight size={15} />
@@ -429,7 +429,7 @@ export default function LandingPage() {
                         <b>{s.label}</b>
                         <small>{s.copy}</small>
                       </div>
-                      <span className={"vy-chip " + (s.state === "Live" ? "vy-chip-live" : "vy-chip-next")}>{s.state}</span>
+                      <span className={"vy-chip " + (s.state === "Live" ? "vy-chip-live" : s.state === "Limited" ? "vy-chip-limited" : "vy-chip-next")}>{s.state}</span>
                     </div>
                   </Reveal>
                 ))}
@@ -574,7 +574,7 @@ export default function LandingPage() {
             <span>© {new Date().getFullYear()} VYRALIS Studio · Every moment has a story.</span>
             <span>
               <a href="https://github.com/leephil1907-lab/vyralis" target="_blank" rel="noreferrer">GitHub</a>
-              <i style={{ opacity: 0.4 }}>·</i> STUDIO / 0.2
+              <i style={{ opacity: 0.4 }}>·</i> STUDIO / 0.3
             </span>
           </div>
         </div>
