@@ -429,3 +429,35 @@
 /* Match the studio's readability floor: nothing below 10px. */
 .vy-road-item .vy-chip{font-size:9.5px}
 .vy-announce,.vy-art-card small{font-size:11px}
+
+/* ============================================================
+   Hero quick start
+   Established clipping tools lead with the input, not the
+   pitch: paste a link, get clips. The landing page now offers
+   the same entry point and hands the URL straight to the studio.
+   ============================================================ */
+.vy-quickstart{
+  display:flex;align-items:center;gap:10px;
+  margin:22px 0 4px;padding:7px 7px 7px 16px;
+  border:1px solid var(--line);border-radius:999px;
+  background:var(--paper);box-shadow:var(--shadow-soft);
+  max-width:560px;
+}
+.vy-quickstart>svg{color:var(--violet-2);flex:none}
+.vy-quickstart input{
+  flex:1;min-width:0;border:0;background:transparent;outline:none;
+  font:400 13px/1 'DM Sans',system-ui,sans-serif;color:var(--ink);
+  padding:9px 0;
+}
+.vy-quickstart input::placeholder{color:var(--muted);opacity:.85}
+.vy-quickstart .vy-btn{flex:none;border-radius:999px;padding:11px 15px}
+.vy-quickstart-error{
+  margin:8px 0 0;font-size:11.5px;line-height:1.5;color:var(--coral);
+}
+.vy-quickstart:focus-within{border-color:var(--violet-2);box-shadow:0 0 0 4px var(--violet-soft)}
+
+@media(max-width:620px){
+  .vy-quickstart{padding:8px 8px 8px 13px;gap:7px;flex-wrap:wrap;border-radius:20px}
+  .vy-quickstart input{flex:1 1 100%;padding:6px 0 2px}
+  .vy-quickstart .vy-btn{width:100%;justify-content:center;min-height:44px}
+}

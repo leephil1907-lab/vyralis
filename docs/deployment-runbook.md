@@ -61,6 +61,10 @@ Cross-origin hosting needs the session-based auth that is not built yet.
 - **Build check.** The image build fails if Debian's FFmpeg lacks the `subtitles` filter, so
   a missing libass cannot reach production silently.
 - **HTTPS is mandatory** for provider redirect URIs; Render provides it on `*.onrender.com`.
+- **Route ownership.** `/docs` is the studio's documentation section and `/api/*` stays
+  JSON, so the generated API reference moved to `/api/reference` (with
+  `/api/openapi.json`). Anything you add under `/api/` must not collide with a
+  browser route, or the SPA catch-all loses that page.
 
 ## Hosted deployment target (multi-tenant, not built yet)
 Separate services:

@@ -59,7 +59,15 @@ DB_PATH = ROOT / "vyralis.sqlite3"
 MAX_UPLOAD = int(os.getenv("VYRALIS_MAX_UPLOAD_BYTES", str(5 * 1024**3)))
 POOL = ThreadPoolExecutor(max_workers=max(1, int(os.getenv("VYRALIS_WORKERS", "1"))))
 
-app = FastAPI(title="VYRALIS Processing API", version="0.3.0")
+# /docs is the studio's own documentation section, so the generated API reference
+# moves under /api where it cannot shadow a browser route.
+app = FastAPI(
+    title="VYRALIS Processing API",
+    version="0.3.0",
+    docs_url="/api/reference",
+    redoc_url=None,
+    openapi_url="/api/openapi.json",
+)
 app.add_middleware(CORSMiddleware, allow_origins=os.getenv("VYRALIS_CORS_ORIGINS", "http://localhost:5173").split(","), allow_credentials=False, allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"], allow_headers=["*"])
 
 
@@ -618,7 +626,7 @@ def startup() -> None:
     for row in rows: enqueue(row["id"])
 
 
-@app.get("/api/health")
+@app.api_route("/api/health", methods=["GET", "HEAD"])
 def health() -> dict[str,Any]:
     return {"status":"ok","version":"0.3.0","capabilities":["persistent-sqlite","media-upload","ffprobe-validation","ffmpeg-audio-extraction","faster-whisper-transcription","ranked-clip-candidates","mp4-export","export-presets","render-quality-inspection","packaging-approval","job-cancellation","link-ingestion","youtube-twitch-kick-url-ingestion","word-timed-captions","hook-titles","subject-framing","oauth-connections","live-platform-metrics"]}
 
@@ -1408,7 +1416,7 @@ def studio_metrics() -> dict[str, Any]:
 WEB_DIR = Path(os.getenv("VYRALIS_WEB_DIR", str(Path(__file__).resolve().parents[2] / "dist")))
 
 
-@app.get("/api/ready")
+@app.api_route("/api/ready", methods=["GET", "HEAD"])
 def readiness() -> JSONResponse:
     """Deployment readiness: tools present, storage writable, database reachable.
 
@@ -1447,20 +1455,47 @@ def readiness() -> JSONResponse:
     )
 
 
+class HashedAssetFiles(StaticFiles):
+    """Static files under /assets carry a content hash, so they never change."""
+
+    def file_response(self, *args: Any, **kwargs: Any) -> Response:
+        response = super().file_response(*args, **kwargs)
+        response.headers.setdefault("Cache-Control", "public, max-age=31536000, immutable")
+        return response
+
+
+def studio_response(web_dir: Path, full_path: str) -> Response:
+    """Resolve a browser route against the built studio.
+
+    Client routes fall back to index.html (which must never be cached, or a deploy
+    leaves visitors on the old shell); real files are served with revalidation
+    except the content-hashed ones under /assets, which are immutable.
+    """
+    if full_path.startswith("api/"):
+        raise HTTPException(status_code=404, detail="Endpoint not found.")
+    root = web_dir.resolve()
+    candidate = (web_dir / full_path).resolve()
+    if full_path and candidate.is_file() and (root == candidate.parent or root in candidate.parents):
+        response = FileResponse(candidate)
+        hashed = "/assets/" in f"/{full_path}/"
+        response.headers["Cache-Control"] = (
+            "public, max-age=31536000, immutable" if hashed else "public, max-age=0, must-revalidate"
+        )
+        return response
+    index = web_dir / "index.html"
+    if index.is_file():
+        response = FileResponse(index)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
+    raise HTTPException(status_code=404, detail="Studio build not found.")
+
+
 if WEB_DIR.is_dir():
     assets_dir = WEB_DIR / "assets"
     if assets_dir.is_dir():
-        app.mount("/assets", StaticFiles(directory=assets_dir), name="studio-assets")
+        app.mount("/assets", HashedAssetFiles(directory=assets_dir), name="studio-assets")
 
-    @app.get("/{full_path:path}", include_in_schema=False)
+    @app.api_route("/{full_path:path}", methods=["GET", "HEAD"], include_in_schema=False)
     def serve_studio(full_path: str) -> Response:
         """Serve the built studio for browser routes; keep /api 404s as JSON."""
-        if full_path.startswith("api/"):
-            raise HTTPException(status_code=404, detail="Endpoint not found.")
-        candidate = (WEB_DIR / full_path).resolve()
-        if full_path and candidate.is_file() and WEB_DIR.resolve() in candidate.parents:
-            return FileResponse(candidate)
-        index = WEB_DIR / "index.html"
-        if index.is_file():
-            return FileResponse(index)
-        raise HTTPException(status_code=404, detail="Studio build not found.")
+        return studio_response(WEB_DIR, full_path)

@@ -11,12 +11,14 @@ import os
 import tempfile
 import unittest
 import uuid
+from pathlib import Path
 
 HAVE_FASTAPI = all(importlib.util.find_spec(name) for name in ("fastapi", "httpx"))
 
 if HAVE_FASTAPI:
     os.environ.setdefault("VYRALIS_DATA_DIR", tempfile.mkdtemp(prefix="vyralis-api-tests-"))
 
+    from fastapi import HTTPException  # noqa: E402
     from fastapi.testclient import TestClient  # noqa: E402
 
     from backend.app import main  # noqa: E402
@@ -148,10 +150,70 @@ class ApiSurfaceTests(unittest.TestCase):
         self.assertTrue({"ffmpeg", "ffprobe", "yt-dlp", "storage", "database", "web-build"} <= ids)
         self.assertIn("ready", payload)
 
+    def test_liveness_and_readiness_answer_head_probes(self):
+        # Uptime monitors and Render's checks may probe with HEAD.
+        self.assertEqual(self.client.head("/api/health").status_code, 200)
+        self.assertIn(self.client.head("/api/ready").status_code, (200, 503))
+
+    def test_studio_routes_answer_head_requests(self):
+        with tempfile.TemporaryDirectory() as raw:
+            web = Path(raw)
+            (web / "index.html").write_text("<!doctype html>")
+            self.assertEqual(main.studio_response(web, "docs").status_code, 200)
+
     def test_unknown_api_route_stays_json_404(self):
         response = self.client.get("/api/definitely-not-a-route")
         self.assertEqual(response.status_code, 404)
         self.assertIn("detail", response.json())
+
+    def test_studio_routes_fall_back_to_the_shell_and_keep_cache_honest(self):
+        with tempfile.TemporaryDirectory() as raw:
+            web = Path(raw)
+            (web / "assets").mkdir()
+            (web / "index.html").write_text("<!doctype html><title>studio</title>")
+            (web / "assets" / "index-abc123.js").write_text("console.log(1)")
+            (web / "assets" / "index-abc123.css").write_text("body{}")
+
+            deep_link = main.studio_response(web, "docs/architecture")
+            self.assertEqual(deep_link.status_code, 200)
+            self.assertEqual(deep_link.headers["cache-control"], "no-cache")
+            self.assertEqual(Path(deep_link.path).name, "index.html")
+
+            script = main.studio_response(web, "assets/index-abc123.js")
+            self.assertIn("immutable", script.headers["cache-control"])
+
+            css = main.studio_response(web, "assets/index-abc123.css")
+            self.assertIn("immutable", css.headers["cache-control"])
+
+            other = main.studio_response(web, "favicon.ico")
+            self.assertEqual(other.headers["cache-control"], "no-cache")
+
+    def test_studio_route_never_escapes_the_web_root(self):
+        with tempfile.TemporaryDirectory() as raw:
+            web = Path(raw) / "dist"
+            web.mkdir()
+            (web / "index.html").write_text("<!doctype html>")
+            (web.parent / "secret.txt").write_text("do not serve")
+            response = main.studio_response(web, "../secret.txt")
+            self.assertEqual(Path(response.path).name, "index.html")
+
+    def test_generated_api_reference_does_not_shadow_the_docs_section(self):
+        # /docs belongs to the studio's documentation; the API reference moved.
+        self.assertEqual(self.client.get("/api/reference").status_code, 200)
+        self.assertEqual(self.client.get("/api/openapi.json").status_code, 200)
+        with tempfile.TemporaryDirectory() as raw:
+            web = Path(raw)
+            (web / "index.html").write_text("<!doctype html><title>studio docs</title>")
+            served = main.studio_response(web, "docs")
+            self.assertEqual(Path(served.path).name, "index.html")
+
+    def test_api_paths_never_reach_the_studio_handler(self):
+        with tempfile.TemporaryDirectory() as raw:
+            web = Path(raw)
+            (web / "index.html").write_text("<!doctype html>")
+            with self.assertRaises(HTTPException) as raised:
+                main.studio_response(web, "api/connections")
+            self.assertEqual(raised.exception.status_code, 404)
 
     # --- link ingestion -------------------------------------------------
 
