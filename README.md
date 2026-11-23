@@ -5,6 +5,16 @@
 <p align="center"><strong>Every moment has a story.</strong></p>
 <p align="center">A creator studio for turning long-form footage into reviewed, polished short-form video.</p>
 
+## Public website
+
+The marketing site lives at `/` and the working studio at `/studio` (the workspace routes such as `/create`, `/projects` and `/review/:projectId` are unchanged). Both are served by the same Vite React app, so `npm run dev` gives you the site and the product together.
+
+The design direction is the warm "Creativity in Motion" system: cream paper, deep violet type, coral accents and soft 3D forms. It replaced the monochrome brutalist alternative because it carries the VYRALIS identity, matches the violet brand mark in the studio, and reads as a video/creator product instead of a generic agency template.
+
+Site copy is deliberately tied to the feature registry: surfaces are labelled *Live* only when the local pipeline supports them end to end, and everything else remains *Planned*. The landing page does not display invented metrics, reach estimates or provider connections.
+
+Design tokens, routes and copy guidance: [docs/website.md](docs/website.md).
+
 ## Main product workflow
 
 Import a video → analyse speech and moments → review ranked clips → edit → export MP4 → package for social platforms → approve and publish → learn from real performance.
@@ -24,8 +34,15 @@ The implemented local vertical slice currently supports:
 6. Build transcript-window clip candidates with an explainable heuristic score breakdown.
 7. Review candidate previews, transcripts and timecodes.
 8. Edit clip start/end and title.
-9. Render a vertical H.264/AAC MP4 with FFmpeg and download it.
-10. Recover queued/processing jobs after worker restart using the local SQLite job records.
+9. Render H.264/AAC MP4 at 9:16, 1:1 or 16:9 with FFmpeg.
+10. Inspect every render automatically (duration, frame size, codecs, black frames, frozen frames, loudness) and block downloads that fail.
+11. Validate packaging copy per destination, approve a package, and download the approved file for manual upload.
+12. Cancel queued or running jobs at worker checkpoints, with retries and idempotent export requests.
+13. Recover queued/processing jobs after worker restart using the local SQLite job records.
+14. Import a YouTube, Twitch or Kick **link** with yt-dlp (rights attestation required, host allowlist, duration/size caps), then run the same transcribe → rank → render pipeline.
+15. Burn word-timed captions into the MP4 in three styles (clean, karaoke sweep, impact), with an optional hook line on its own top layer; download matching SRT, VTT and ASS sidecars.
+16. Reframe to the export preset with a centre crop, a blurred-fill layout, or face-tracked cropping when the optional vision extra is installed.
+17. Show exactly what was burned in — captions, style, hook, layout and whether tracking actually ran — inside the render quality report.
 
 Link ingestion uses yt-dlp extractors for eligible public sources; it does not use account cookies, DRM bypass or private/paywalled access. A source may still be unavailable because of provider restrictions, regional/age limits or extractor changes. Users must have permission and comply with the source platform's terms. The candidate score is a transparent transcript heuristic. It is not a trained virality model and does not predict reach. The current API is a single-workspace local foundation, not a secure multi-user hosted service.
 
@@ -35,7 +52,11 @@ The complete feature inventory, current implementation status and acceptance gat
 
 Architecture and service boundaries: [docs/architecture.md](docs/architecture.md).
 
+Upstream research — which open-source clippers and components are worth using, and which are licence traps: [docs/upstream-evaluation.md](docs/upstream-evaluation.md).
+
 Target API contract: [docs/api-contract.md](docs/api-contract.md). This is a target contract; routes are not implemented merely because they are documented.
+
+Link ingestion behaviour, safeguards and limits: [docs/source-ingestion.md](docs/source-ingestion.md).
 
 Security, privacy and media-rights requirements: [docs/security-and-privacy.md](docs/security-and-privacy.md).
 
@@ -59,23 +80,33 @@ These areas are not all implemented. Each feature must be connected to a real se
 
 ## Local development
 
-Requirements: Python 3.11, Node.js 20+, FFmpeg and FFprobe.
+Requirements: Python 3.11, Node.js 20+, FFmpeg and FFprobe, and `yt-dlp` if you want to import links.
+
+FFmpeg must be built with **libass** for burned-in captions (`ffmpeg -filters | grep subtitles`). Distro packages, Termux's `ffmpeg` package and the usual static builds include it. Without libass, the render fails loudly with the FFmpeg error instead of producing a video with no captions.
 
 Backend:
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install -r backend/requirements.txt
+pip install -r backend/requirements.txt   # includes yt-dlp for link imports
+# optional: face-tracked framing instead of centre crops
+pip install opencv-python-headless
 VYRALIS_DATA_DIR=./data uvicorn backend.app.main:app --reload --host 127.0.0.1 --port 8000
 ```
+
+On Android/Termux the same steps work with `pkg install python nodejs ffmpeg yt-dlp`, then `python -m venv` and the commands above. Use the smallest whisper model your device can run (`VYRALIS_WHISPER_MODEL=small` or `base`).
 
 Frontend, in a second terminal:
 
 ```bash
 npm install
-VITE_API_BASE_URL=http://127.0.0.1:8000 npm run dev
+npm run dev
 ```
+
+The Vite dev and preview servers proxy `/api` to `http://127.0.0.1:8000`, so the browser stays on one origin and no CORS setup is needed. Point the proxy elsewhere with `VYRALIS_API_TARGET`, or set `VITE_API_BASE_URL` if the API is on another host.
+
+For the full test suite (including the HTTP surface tests, which need `httpx`), install `backend/requirements-dev.txt` instead and run `python -m unittest discover -s tests`. Tests that need FFmpeg skip themselves when it is absent.
 
 The first faster-whisper run downloads the configured model. Configure VYRALIS_WHISPER_MODEL, VYRALIS_WHISPER_DEVICE and VYRALIS_WHISPER_COMPUTE for the available hardware.
 

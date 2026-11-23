@@ -20,10 +20,20 @@ This is the canonical product inventory. A feature is implemented only when its 
 | Highlight discovery | Transcript-window candidates and score breakdown | Working foundation; heuristic only, not trained virality prediction |
 | Candidate review | Ranked candidates, source preview, transcript and timecodes | Working foundation; verify full journey |
 | Clip editing | Adjust start/end/title | Working foundation; add split, merge, undo and versions |
-| MP4 export | FFmpeg H.264/AAC vertical render | Working foundation; add output validation and layout presets |
-| Download | Download rendered clip | Working foundation |
+| Multi-preset export | FFmpeg H.264/AAC render at 9:16 (1080×1920), 1:1 (1080×1080) and 16:9 (1920×1080) with deterministic scale/crop | Working foundation |
+| Render quality inspection | FFprobe duration/size/codec checks plus blackdetect, freezedetect and volumedetect, recorded per export | Working foundation; add caption, framing and frame-sampling checks with licensed fixtures |
+| Download | Download a validated render; failed inspections are blocked | Working foundation |
+| Packaging validation | Per-destination title/description/hashtag limits, duplicate and character rules | Working foundation |
+| Approval gate | Approval requires a passing/warned render and valid packaging; editing copy revokes approval | Working foundation |
+| Delivery packages | Approved package + validated file listed in Publish Studio for manual upload | Working foundation; platform adapters remain planned |
+| Job cancellation | Queued jobs cancel immediately; running jobs stop at checkpoints | Working foundation; add worker preemption |
+| Export idempotency | Repeated export requests for the same clip and preset reuse the active render | Working foundation |
+| Link ingestion | YouTube/Twitch/Kick URL policy, yt-dlp metadata preview, rights attestation, duration/live caps, download → transcribe → rank | Working foundation; requires yt-dlp and FFmpeg on the processing host, verified against a local synthetic source only |
+| Word-timed captions | ASS burn-in in clean/karaoke/impact styles, per-word sweep, hook layer, SRT/VTT/ASS sidecars | Working foundation; requires libass-enabled FFmpeg |
+| Auto-reframe | Centre crop, blurred-fill layout, optional face-tracked focus with damped smoothing | Working foundation; face tracking needs the optional vision extra and is reported honestly when unavailable |
+| Hook lines and titles | Extractive hook/title/hashtag suggestions from the transcript, editable per clip | Working foundation; heuristic, not a virality model |
 
-P0 acceptance: a rights-cleared local upload or eligible provider link completes ingestion → upload/source validation → processing → review → edit → export → download. Provider extraction is subject to platform access, permissions and availability. A rights-cleared video completes upload → processing → review → edit → export → download; job recovery and retry are safe; clip bounds stay within source duration; output decodes and has expected duration, dimensions and audio.
+P0 acceptance: a rights-cleared local upload — or an eligible provider link, subject to platform access, permissions and availability — completes ingestion → source validation → processing → review → edit → export → quality inspection → download → packaging → approval; job recovery, cancellation and retry are safe; clip bounds stay within source duration; output decodes with the requested captions and framing, and has the expected duration, dimensions and audio. Media-dependent acceptance still needs licensed CI fixtures — see the open roadmap items.
 
 ## P1 — Analysis intelligence
 - Word-level alignment, language detection and transcript correction.
@@ -40,9 +50,9 @@ P0 acceptance: a rights-cleared local upload or eligible provider link completes
 - Multi-track timeline, source/program monitors and frame-accurate seeking.
 - Transcript-linked trim, split, merge, ripple edits and undo/redo.
 - Non-destructive edit decision lists and version history.
-- Auto-reframe for 9:16, 1:1, 16:9 and custom dimensions.
-- Subject/face tracking, speaker-aware layouts and manual keyframes.
-- Caption Lab: word timing, templates, karaoke emphasis, speaker colors, safe zones and multilingual variants.
+- Auto-reframe for 9:16, 1:1, 16:9 and custom dimensions. (Working foundation: centre, blur and optional face-tracked crops; custom dimensions and manual keyframes are not available.)
+- Subject/face tracking, speaker-aware layouts and manual keyframes. (Partial: single-face tracking behind the vision extra.)
+- Caption Lab: word timing, templates, karaoke emphasis, speaker colors, safe zones and multilingual variants. (Partial: three burn-in styles with karaoke sweep; no templates UI, speaker colours or multilingual variants.)
 - Titles, hooks, lower thirds, transitions, zooms, overlays, stickers and progress indicators.
 - Audio gain, ducking, noise reduction and licensed music selection.
 - B-roll/image overlays with attribution and usage-rights metadata.

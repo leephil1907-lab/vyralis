@@ -1,0 +1,4 @@
+# Development and CI extras. Runtime dependencies stay in requirements.txt.
+-r requirements.txt
+# Starlette's TestClient needs httpx; the API surface tests skip without it.
+httpx>=0.27,<0.29
