@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Activity, ArrowUpRight, AudioLines, CheckCircle2, ChevronDown, Clapperboard, CloudUpload, Command, Film, FolderOpen, Gauge, HardDrive, Layers3, Play, Plus, Search, Settings2, Sparkles, WandSparkles, Zap } from "lucide-react";
-import { motion } from "framer-motion";
+import { Activity, ArrowUpRight, AudioLines, CheckCircle2, ChevronDown, Clapperboard, CloudUpload, Command, Film, FolderOpen, Gauge, HardDrive, Layers3, Play, Plus, Search, Settings2, Sparkles, WandSparkles } from "lucide-react";
 import { api, type Health, type MediaAsset } from "./lib/api";
 
 const nav = [
@@ -51,7 +50,7 @@ export default function App() {
       <div className="sidebar-bottom"><div className="engine-card"><div className="engine-top"><span className={health ? "status-dot online" : "status-dot"}/><b>{health ? "Engine connected" : "Engine offline"}</b></div><p>{health ? "Local processing is ready." : "Start the local engine to enable media processing."}</p><button onClick={() => void refresh()}>Check connection <ArrowUpRight size={13}/></button></div><button className="nav-item"><Settings2 size={17}/>Settings</button><div className="profile"><div className="profile-avatar">V</div><div><b>VYRALIS Creator</b><small>Local account</small></div><ChevronDown size={15}/></div></div>
     </aside>
     <main className="main">
-      <header className="topbar"><div className="breadcrumb">Workspace <span>/</span> Overview</div><div className="top-actions"><div className="local-pill"><span className="status-dot online"/> LOCAL-FIRST</div><button className="icon-button" aria-label="Search"><Search size={17}/></button><button className="avatar-mini">V</button></div></header>
+      <header className="topbar"><div className="breadcrumb">Workspace <span>/</span> Overview</div><div className="top-actions"><div className="local-pill"><span className={health ? "status-dot online" : "status-dot"}/> {health ? "ENGINE ONLINE" : "ENGINE OFFLINE"}</div><button className="icon-button" aria-label="Search"><Search size={17}/></button><button className="avatar-mini">V</button></div></header>
       <div className="content">
         <section className="welcome"><div><div className="eyebrow"><Sparkles size={13}/> YOUR CREATIVE WORKSPACE</div><h1>Make every moment<br/><span>worth watching.</span></h1><p>Turn long-form footage into sharp, story-driven social content.</p></div><div className="welcome-mark"><div className="orbit orbit-one"/><div className="orbit orbit-two"/><img src="/assets/vyralis-mark.svg" alt="VYRALIS"/></div></section>
         <section className="action-grid">
