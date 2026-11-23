@@ -7,8 +7,8 @@ import {
   Check, ChevronDown, CircleHelp, Clapperboard, Compass, Film,
   FolderOpen, Gauge, HardDrive, Layers3, Link2, ListVideo, Menu, MessageSquareText,
   MoreHorizontal, Play, Plus, Search, Settings2, ShieldCheck, Sparkles, Subtitles, Network,
-  WandSparkles, X, Youtube, Instagram, Radio, Clock3, SlidersHorizontal, Zap, Palette,
-  Scissors, Upload, ExternalLink, Video, Captions, ChartNoAxesCombined
+  WandSparkles, X, Youtube, Instagram, Radio, SlidersHorizontal, Zap, Palette,
+  Scissors, Upload, Video, Captions, ChartNoAxesCombined, AudioLines
 } from "lucide-react";
 import { api, type Health, type MediaAsset } from "./lib/api";
 import ReviewPage from "./pages/ReviewPage";
