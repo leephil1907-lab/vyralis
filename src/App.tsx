@@ -52,6 +52,7 @@ function App() {
   const [notice,setNotice] = useState("");
   const [query,setQuery] = useState("");
   const [sourceUrl,setSourceUrl] = useState("");
+  const [sourceRights,setSourceRights] = useState(false);
   const [mobileNav,setMobileNav] = useState(false);
 
   async function refresh() {
@@ -70,16 +71,19 @@ function App() {
   const title = titles[location.pathname] || "Dashboard";
   const totalBytes = assets.reduce((n,a)=>n+a.size,0);
 
-  function beginLinkFlow() {
+  async function beginLinkFlow() {
     const value=sourceUrl.trim();
     if(!value){setNotice("Paste a YouTube, Twitch or Kick video link first.");return;}
-    let url:URL;
-    try { url=new URL(value); } catch { setNotice("Enter a valid video URL."); return; }
-    const host=url.hostname.toLowerCase().replace(/^www\./,"");
-    if(!["youtube.com","youtu.be","m.youtube.com","twitch.tv","clips.twitch.tv","kick.com"].includes(host)){
-      setNotice("Supported sources: YouTube, Twitch and Kick links."); return;
-    }
-    setNotice("This source adapter is not connected yet. Upload a local video to start the working transcription and clipping pipeline.");
+    if(!sourceRights){setNotice("Confirm that you have permission to download and process this video.");return;}
+    setBusy(true); setNotice("Importing video from the source link…");
+    try {
+      const project=await api.ingestUrl(value,true);
+      setNotice("Video link accepted. Source ingestion and clip analysis have started.");
+      await refresh();
+      navigate("/review/"+project.id+"?job="+project.job_id);
+    } catch(e) {
+      setNotice(e instanceof Error?e.message:"Could not import this video link.");
+    } finally { setBusy(false); }
   }
 
   const page = (node:ReactNode) => <motion.div className="page-content" key={location.pathname} {...pageMotion} transition={{duration:.24,ease:[.22,1,.36,1]}}>{node}</motion.div>;
@@ -107,9 +111,9 @@ function App() {
 
   function Create(){
     return page(<><PageHeader eyebrow="CLIP STUDIO" heading={<>Find the moments that <em>move people.</em></>} description="Upload a supported video to start real transcription, ranked highlight analysis and MP4 clip generation."/>
-      <Glass className="create-panel"><div className="source-tabs"><span className="source-tab active"><Link2 size={15}/> Paste video link</span><button className="source-tab" onClick={()=>input.current?.click()}><Upload size={15}/> Upload video</button></div><div className="source-input-wrap"><Link2 size={18}/><input value={sourceUrl} onChange={e=>setSourceUrl(e.target.value)} onKeyDown={e=>e.key==="Enter"&&beginLinkFlow()} placeholder="Paste a YouTube, Twitch or Kick video URL"/><button className="button-primary" onClick={beginLinkFlow}>Continue <ArrowUpRight size={15}/></button></div><div className="source-support"><span><Youtube size={14}/> YouTube</span><span><Radio size={14}/> Twitch</span><span><Zap size={14}/> Kick</span><span className="source-note">Video link or local upload</span></div><input ref={input} type="file" accept="video/*" hidden onChange={e=>void upload(e.target.files)}/>{notice&&<div className="notice"><ShieldCheck size={15}/>{notice}</div>}</Glass>
+      <Glass className="create-panel"><div className="source-tabs"><span className="source-tab active"><Link2 size={15}/> Paste video link</span><button className="source-tab" onClick={()=>input.current?.click()}><Upload size={15}/> Upload video</button></div><div className="source-input-wrap"><Link2 size={18}/><input value={sourceUrl} onChange={e=>setSourceUrl(e.target.value)} onKeyDown={e=>e.key==="Enter"&&beginLinkFlow()} placeholder="Paste a YouTube, Twitch or Kick video URL"/><button className="button-primary" disabled={busy||!sourceRights} onClick={()=>void beginLinkFlow()}>{busy?"Importing…":"Continue"} <ArrowUpRight size={15}/></button></div><label className="source-consent"><input type="checkbox" checked={sourceRights} onChange={e=>setSourceRights(e.target.checked)}/> I own this video or have permission to download and process it, and its use is permitted by the source platform.</label><div className="source-support"><span><Youtube size={14}/> YouTube</span><span><Radio size={14}/> Twitch</span><span><Zap size={14}/> Kick</span><span className="source-note">Public video link or local upload</span></div><input ref={input} type="file" accept="video/*" hidden onChange={e=>void upload(e.target.files)}/>{notice&&<div className="notice"><ShieldCheck size={15}/>{notice}</div>}</Glass>
       <div className="section-title"><div><span className="micro-label">YOUR CLIPPING WORKFLOW</span><h2>From source to shareable</h2></div></div><div className="workflow-grid">{[{n:"01",icon:Compass,title:"Discover highlights",desc:"Audio energy, transcript context, scene changes and standout moments."},{n:"02",icon:Scissors,title:"Shape every clip",desc:"Trim, split, reframe and refine your strongest moments."},{n:"03",icon:Captions,title:"Style your story",desc:"Word-timed captions, hooks, titles and reusable brand presets."},{n:"04",icon:Radio,title:"Publish & learn",desc:"Prepare platform versions, schedule posts and review performance."}].map(item=><Glass className="workflow-card" key={item.n}><span className="workflow-number">{item.n}</span><item.icon size={20}/><h3>{item.title}</h3><p>{item.desc}</p></Glass>)}</div>
-      <div className="integration-note"><Sparkles size={16}/><div><b>Processing integrations are being connected</b><p>Uploads are validated with FFprobe, audio is extracted with FFmpeg, speech is transcribed with faster-whisper, and transcript windows are ranked for review. URL ingestion is not enabled in this release.</p></div></div>
+      <div className="integration-note"><Sparkles size={16}/><div><b>Processing integrations are being connected</b><p>Uploads are validated with FFprobe, audio is extracted with FFmpeg, speech is transcribed with faster-whisper, and transcript windows are ranked for review. Link ingestion supports eligible public YouTube, Twitch and Kick videos through yt-dlp. Provider restrictions, age/region restrictions and unavailable downloads may still prevent import.</p></div></div>
     </>);
   }
 
