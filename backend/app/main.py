@@ -199,7 +199,7 @@ def list_assets() -> list[dict[str,Any]]:
 async def upload_asset(file: UploadFile = File(...)) -> dict[str,Any]:
     if not file.filename: raise HTTPException(status_code=400,detail="A filename is required.")
     suffix=Path(file.filename).suffix.lower()
-    if suffix not in {".mp4",".mov",".mkv",".webm",".avi",".mp3",".wav",".m4a",".aac"}:
+    if suffix not in {".mp4",".mov",".mkv",".webm",".avi"}:
         raise HTTPException(status_code=415,detail="Unsupported media format.")
     asset_id=str(uuid.uuid4()); target=MEDIA/f"{asset_id}{suffix}"; size=0
     try:
