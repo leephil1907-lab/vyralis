@@ -148,3 +148,44 @@ The initial create screen must offer two equally clear source methods:
 - Upload a video from this device.
 
 After source validation, show source details and a clear "Generate clips" action. Advanced settings are optional and collapsed by default. The default workflow should require only a link and a click. Show job progress and generated clips as they become available. Never fabricate clip results or progress.
+
+
+## Niche Intelligence, StoryLab and visual workflow canvas
+
+VYRALIS includes a strategy-to-production layer that feeds the clipper and publishing studio. It is not a separate tool directory.
+
+### Trend & Niche Radar
+- Discover broad categories and narrower sub-niches by platform and target audience.
+- Rank opportunities only when supported by current data: trend velocity, search interest, creator/channel activity, content saturation, audience engagement, clip density, evergreen potential and monetization fit.
+- Show evidence, data source, retrieval time, confidence and geography for each signal.
+- Distinguish measured platform metrics from modeled estimates. RPM/revenue estimates must show assumptions and ranges; never promise earnings.
+- Save niche watchlists, compare candidate niches, identify content gaps and convert a selected niche into a recurring series plan.
+- Data adapters may include YouTube Data API, authorized creator analytics, Google Trends or a licensed trend provider, and other approved public/authorized sources. Respect quotas and platform terms; no fake live metrics or unsupported scraping.
+
+### StoryLab — storyline and scene illustration
+- Convert a topic, source transcript or selected niche into a structured story arc: hook, setup, development, turning point, payoff and CTA.
+- Build a scene-by-scene storyboard with narration, duration estimate, visual direction, shot/illustration prompt, on-screen text, transition and source/citation notes.
+- Support documentary, explainer, illustrated story, product story, case study and creator-led formats.
+- Keep factual claims traceable to sources and flag details requiring verification.
+- Generate image references, visual consistency guides and optional video shots through provider adapters. Support user-supplied reference images and persistent character/style references when permitted.
+- Voice generation and sound design are optional nodes; creators can use their own recordings.
+- Storyboards are editable and can be sent into the workflow canvas, clip editor and render pipeline.
+
+### Creative Workflow Canvas
+Vidnance (https://vidnance.com/) was evaluated as a product reference for a visual node-based creative canvas that chains text, image, video and audio operations, supports multi-reference inputs, templates and conversational revisions. VYRALIS should adopt the workflow concept, not copy Vidnance's branding, proprietary UI or code.
+
+Canvas nodes should include Brief/Input → Research → Script → Storyboard → Image/Video assets → Voice/Sound → Clip/Compose → Captions → Quality Check → Export/Publish. Nodes have typed inputs/outputs, provider and model configuration, cost/credit estimate where known, run status, retries, preview, logs and version history. Support reusable templates, branching, parallel generation, autosave and rerunning downstream nodes when an upstream input changes.
+
+### Additional integration candidates
+- Trend and audience research: YouTube Data API, Google Trends or licensed trend intelligence, plus approved creator analytics APIs.
+- Story/script/research: LLM provider adapters with structured output, retrieval/citations and fact-check workflow.
+- Image generation and visual consistency: image model adapters; optional reference image/character/style management.
+- Video generation and editing: video model adapters, FFmpeg and Remotion; provider terms, watermarking, commercial-use and output restrictions must be surfaced.
+- Voice and sound: ElevenLabs or other authorized TTS/voice providers, plus local audio tools; voice cloning requires explicit rights/consent.
+- Workflow orchestration: durable DAG execution, job queue, event stream, retries, caching, cost accounting and artifact lineage.
+- Research inputs: official APIs and licensed sources only; cache within terms and label freshness.
+
+Provider availability, model versions, prices, licenses, and regional access change. Maintain an adapter registry with capability metadata and verify each provider before enabling a feature. Never imply a third-party model or API is integrated until credentials, server-side adapter, tests and end-to-end outputs are working.
+
+### Strategy-to-publish journey
+Discover niche → choose audience and series angle → create story outline → illustrate scenes → generate or import voice/footage → assemble vertical video → review/edit → export or schedule → measure actual performance → feed learning back into niche and format recommendations.
