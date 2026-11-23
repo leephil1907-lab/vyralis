@@ -5,6 +5,16 @@
 <p align="center"><strong>Every moment has a story.</strong></p>
 <p align="center">A creator studio for turning long-form footage into reviewed, polished short-form video.</p>
 
+## Public website
+
+The marketing site lives at `/` and the working studio at `/studio` (the workspace routes such as `/create`, `/projects` and `/review/:projectId` are unchanged). Both are served by the same Vite React app, so `npm run dev` gives you the site and the product together.
+
+The design direction is the warm "Creativity in Motion" system: cream paper, deep violet type, coral accents and soft 3D forms. It replaced the monochrome brutalist alternative because it carries the VYRALIS identity, matches the violet brand mark in the studio, and reads as a video/creator product instead of a generic agency template.
+
+Site copy is deliberately tied to the feature registry: surfaces are labelled *Live* only when the local pipeline supports them end to end, and everything else remains *Planned*. The landing page does not display invented metrics, reach estimates or provider connections.
+
+Design tokens, routes and copy guidance: [docs/website.md](docs/website.md).
+
 ## Main product workflow
 
 Import a video → analyse speech and moments → review ranked clips → edit → export MP4 → package for social platforms → approve and publish → learn from real performance.
