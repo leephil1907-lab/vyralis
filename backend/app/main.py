@@ -167,8 +167,34 @@ def process_job(job_id: str) -> None:
         shutil.rmtree(work,ignore_errors=True)
 
 
+
+def process_export_job(job_id: str, clip_id: str) -> None:
+    try:
+        with connect() as db:
+            clip=db.execute("SELECT c.*,a.path FROM clips c JOIN projects p ON p.id=c.project_id JOIN assets a ON a.id=p.asset_id WHERE c.id=?",(clip_id,)).fetchone()
+        if not clip:
+            raise RuntimeError("Clip disappeared before rendering.")
+        update_job(job_id,status="processing",stage="rendering",progress=10,message="Rendering vertical MP4 with FFmpeg")
+        output=OUTPUTS/f"{clip_id}.mp4"
+        duration=clip["end_seconds"]-clip["start_seconds"]
+        run(["ffmpeg","-y","-ss",str(clip["start_seconds"]),"-i",clip["path"],"-t",str(duration),"-vf","scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920","-c:v","libx264","-preset","veryfast","-crf","23","-c:a","aac","-b:a","160k","-movflags","+faststart",str(output)])
+        with connect() as db:
+            db.execute("UPDATE clips SET output_path=?,status='exported' WHERE id=?",(str(output),clip_id))
+        update_job(job_id,status="completed",stage="complete",progress=100,message="MP4 export is ready to download")
+    except Exception as exc:
+        update_job(job_id,status="failed",stage="failed",error=str(exc),message="MP4 rendering failed")
+
+
 def enqueue(job_id: str) -> None:
-    POOL.submit(process_job,job_id)
+    with connect() as db:
+        row=db.execute("SELECT options FROM jobs WHERE id=?",(job_id,)).fetchone()
+    if not row:
+        return
+    options=json.loads(row["options"])
+    if options.get("kind")=="export":
+        POOL.submit(process_export_job,job_id,options["clip_id"])
+    else:
+        POOL.submit(process_job,job_id)
 
 
 class ProjectRequest(BaseModel):
@@ -278,15 +304,13 @@ def edit_clip(clip_id: str,payload: ClipEdit) -> dict[str,Any]:
 @app.post("/api/clips/{clip_id}/export")
 def export_clip(clip_id: str) -> dict[str,Any]:
     with connect() as db:
-        clip=db.execute("SELECT c.*,a.path FROM clips c JOIN projects p ON p.id=c.project_id JOIN assets a ON a.id=p.asset_id WHERE c.id=?",(clip_id,)).fetchone()
-    if not clip: raise HTTPException(status_code=404,detail="Clip not found.")
-    output=OUTPUTS/f"{clip_id}.mp4"; duration=clip["end_seconds"]-clip["start_seconds"]
-    try:
-        run(["ffmpeg","-y","-ss",str(clip["start_seconds"]),"-i",clip["path"],"-t",str(duration),"-vf","scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920","-c:v","libx264","-preset","veryfast","-crf","23","-c:a","aac","-b:a","160k","-movflags","+faststart",str(output)])
-    except Exception as exc:
-        output.unlink(missing_ok=True); raise HTTPException(status_code=500,detail=f"FFmpeg export failed: {exc}") from exc
-    with connect() as db: db.execute("UPDATE clips SET output_path=?,status='exported' WHERE id=?",(str(output),clip_id))
-    return {"clip_id":clip_id,"status":"exported","download_url":f"/api/clips/{clip_id}/download"}
+        clip=db.execute("SELECT * FROM clips WHERE id=?",(clip_id,)).fetchone()
+        if not clip:
+            raise HTTPException(status_code=404,detail="Clip not found.")
+        job_id=str(uuid.uuid4()); timestamp=now()
+        db.execute("INSERT INTO jobs VALUES(?,?,?,?,?,?,?,?,?,?)",(job_id,clip["project_id"],"queued","queued",0,"Waiting for a render worker",json.dumps({"kind":"export","clip_id":clip_id}),None,timestamp,timestamp))
+    enqueue(job_id)
+    return {"clip_id":clip_id,"job_id":job_id,"status":"queued"}
 
 
 @app.get("/api/clips/{clip_id}/download")
