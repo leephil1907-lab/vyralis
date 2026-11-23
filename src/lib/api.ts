@@ -28,6 +28,45 @@ export type Packaging = {
 };
 export type PublishPackages = { packages: Packaging[]; note: string };
 
+export type ConnectedAccount = {
+  id: string;
+  platform: string;
+  display_name: string;
+  avatar_url?: string | null;
+  metrics: Record<string, number | null>;
+  metrics_synced_at?: string | null;
+  status: "connected" | "error" | string;
+  scopes: string[];
+  extra: Record<string, string | null>;
+  connected_at: string;
+  updated_at: string;
+};
+export type ConnectionProvider = {
+  key: string;
+  label: string;
+  configured: boolean;
+  scopes: string[];
+  client_id_env: string;
+  client_secret_env: string;
+  uses_pkce: boolean;
+  setup_note: string;
+  callback_url: string;
+  accounts: ConnectedAccount[];
+};
+export type ConnectionList = { providers: ConnectionProvider[]; generated_at: string };
+export type StudioMetrics = {
+  studio: {
+    assets: number;
+    storage_bytes: number;
+    projects: number;
+    clips: number;
+    exports: { total: number; ready: number; failed: number; active: number };
+    quality: { pass: number; warn: number; fail: number };
+  };
+  accounts: ConnectedAccount[];
+  generated_at: string;
+};
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, init);
   if (!response.ok) {
@@ -40,6 +79,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   health: () => request<Health>("/api/health"),
+  connections: () => request<ConnectionList>("/api/connections"),
+  startConnection: (platform: string, nextPath = "/connections") => request<{ platform: string; authorize_url: string; callback_url: string }>(`/api/connections/${platform}/start`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ next_path: nextPath }) }),
+  syncConnection: (accountId: string) => request<ConnectedAccount>(`/api/connections/${accountId}/sync`, { method: "POST" }),
+  disconnectConnection: (accountId: string) => request<{ disconnected: string; platform: string }>(`/api/connections/${accountId}`, { method: "DELETE" }),
+  metrics: () => request<StudioMetrics>("/api/metrics"),
   assets: () => request<MediaAsset[]>("/api/assets"),
   upload: (file: File) => {
     const body = new FormData();

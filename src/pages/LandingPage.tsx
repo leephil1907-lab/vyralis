@@ -77,7 +77,7 @@ const surfaces = [
   { icon: Scissors, label: "Edit Studio", copy: "Burn-in captions and automatic reframing today; timeline editing and templates next", state: "Limited" },
   { icon: Palette, label: "Creative Studio", copy: "StoryLab planning, brand kits and the workflow canvas", state: "Planned" },
   { icon: Compass, label: "Growth Intelligence", copy: "Profile audits, hooks and ideas once authorized data is connected", state: "Planned" },
-  { icon: Radio, label: "Publish Studio", copy: "Validated packaging and approved delivery packages", state: "Limited" },
+  { icon: Radio, label: "Publish Studio", copy: "Validated packaging, approved delivery packages and real account connections; posting awaits platform approval", state: "Limited" },
   { icon: ChartNoAxesCombined, label: "Analytics Studio", copy: "Performance learning from authorized platform metrics only", state: "Planned" },
 ];
 
@@ -89,7 +89,7 @@ const roadmap = [
   },
   {
     icon: Radio, title: "Publishing & calendar",
-    copy: "Official OAuth adapters, timezone-aware scheduling, approval steps and delivery receipts. No simulated posting.",
+    copy: "Account connections and token handling ship today; direct posting needs approved platform apps, then timezone-aware scheduling, approval steps and delivery receipts. No simulated posting.",
     stage: "Release 4",
   },
   {

@@ -1,0 +1,66 @@
+# Render blueprint for the VYRALIS processing API.
+#
+# The studio frontend is a static Vite build — deploy it on Vercel (or a Render static
+# site) and point VITE_API_BASE_URL at this service. This blueprint only builds the API,
+# because it needs FFmpeg, yt-dlp and enough memory for Whisper.
+#
+# Sizing: 2 GB is the practical floor for FFmpeg + faster-whisper "base". Free instances
+# have 512 MB and spin down, which kills long jobs; use at least Starter.
+services:
+  - type: web
+    name: vyralis-api
+    runtime: docker
+    plan: starter
+    region: frankfurt
+    healthCheckPath: /api/health
+    autoDeploy: true
+    disk:
+      name: vyralis-data
+      mountPath: /var/lib/vyralis
+      sizeGB: 20
+    envVars:
+      - key: VYRALIS_DATA_DIR
+        value: /var/lib/vyralis
+      # One worker process: the job pool is in-process and SQLite is the queue.
+      - key: VYRALIS_WORKERS
+        value: "1"
+      - key: VYRALIS_WHISPER_MODEL
+        value: base
+      - key: VYRALIS_WHISPER_DEVICE
+        value: cpu
+      - key: VYRALIS_WHISPER_COMPUTE
+        value: int8
+      - key: VYRALIS_MAX_UPLOAD_BYTES
+        value: "2147483648"
+      - key: VYRALIS_MAX_SOURCE_BYTES
+        value: "2147483648"
+      # Set these in the dashboard once you know the deployed origins.
+      - key: VYRALIS_PUBLIC_URL
+        sync: false
+      - key: VYRALIS_FRONTEND_URL
+        sync: false
+      - key: VYRALIS_CORS_ORIGINS
+        sync: false
+      # Token encryption key. Generate with: openssl rand -hex 32
+      - key: VYRALIS_AUTH_SECRET
+        generateValue: true
+      # HTTP Basic gate for the API, format user:password. Required before public use.
+      - key: VYRALIS_BASIC_AUTH
+        sync: false
+      # Social platform OAuth clients — see docs/oauth-setup.md
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: TIKTOK_CLIENT_KEY
+        sync: false
+      - key: TIKTOK_CLIENT_SECRET
+        sync: false
+      - key: META_APP_ID
+        sync: false
+      - key: META_APP_SECRET
+        sync: false
+      - key: X_CLIENT_ID
+        sync: false
+      - key: X_CLIENT_SECRET
+        sync: false

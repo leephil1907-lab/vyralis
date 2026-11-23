@@ -31,6 +31,8 @@ This is the canonical product inventory. A feature is implemented only when its 
 | Link ingestion | YouTube/Twitch/Kick URL policy, yt-dlp metadata preview, rights attestation, duration/live caps, download → transcribe → rank | Working foundation; requires yt-dlp and FFmpeg on the processing host, verified against a local synthetic source only |
 | Word-timed captions | ASS burn-in in clean/karaoke/impact styles, per-word sweep, hook layer, SRT/VTT/ASS sidecars | Working foundation; requires libass-enabled FFmpeg |
 | Auto-reframe | Centre crop, blurred-fill layout, optional face-tracked focus with damped smoothing | Working foundation; face tracking needs the optional vision extra and is reported honestly when unavailable |
+| Platform connections | OAuth 2.0 authorization-code flows for YouTube, TikTok, Instagram and X; PKCE where supported; single-use expiring state; encrypted token storage; automatic refresh; disconnect deletes tokens | Working foundation; needs operator-owned OAuth clients. Request shapes and parsing are tested against a fake transport — each first live connection is unverified |
+| Live channel metrics | Account profile and public counts read from the connected platform API, shown with a sync timestamp; missing fields stay empty | Working foundation; depends on a connection |
 | Hook lines and titles | Extractive hook/title/hashtag suggestions from the transcript, editable per clip | Working foundation; heuristic, not a virality model |
 
 P0 acceptance: a rights-cleared local upload — or an eligible provider link, subject to platform access, permissions and availability — completes ingestion → source validation → processing → review → edit → export → quality inspection → download → packaging → approval; job recovery, cancellation and retry are safe; clip bounds stay within source duration; output decodes with the requested captions and framing, and has the expected duration, dimensions and audio. Media-dependent acceptance still needs licensed CI fixtures — see the open roadmap items.
@@ -60,6 +62,7 @@ P0 acceptance: a rights-cleared local upload — or an eligible provider link, s
 - Batch rendering, render presets, output validation and retryable queue.
 
 ## P3 — Repurposing and publishing
+- Account connections: YouTube, TikTok, Instagram and X OAuth. (Working foundation — see the platform connections row above. Publishing itself is not implemented.)
 - Per-destination aspect ratio, duration, title, description, hashtags, thumbnail and accessibility text.
 - Draft preview and platform-specific validation.
 - Timezone-aware calendar and schedule collision checks.

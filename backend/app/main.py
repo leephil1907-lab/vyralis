@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+import hmac
 import json
 import os
 import ipaddress
@@ -9,18 +11,22 @@ import shutil
 import sqlite3
 import subprocess
 import threading
+import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
-from fastapi import Body, FastAPI, File, HTTPException, UploadFile
+from fastapi import Body, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel, Field
 
+from . import accounts
+from .accounts import AccountError, OAuthError, ProviderNotConfigured
 from .captions import CAPTION_STYLES, DEFAULT_STYLE, build_ass, build_srt, build_vtt
 from .delivery import (
     DESTINATIONS,
@@ -53,7 +59,32 @@ MAX_UPLOAD = int(os.getenv("VYRALIS_MAX_UPLOAD_BYTES", str(5 * 1024**3)))
 POOL = ThreadPoolExecutor(max_workers=max(1, int(os.getenv("VYRALIS_WORKERS", "1"))))
 
 app = FastAPI(title="VYRALIS Processing API", version="0.3.0")
-app.add_middleware(CORSMiddleware, allow_origins=os.getenv("VYRALIS_CORS_ORIGINS", "http://localhost:5173").split(","), allow_credentials=False, allow_methods=["GET", "POST", "PATCH"], allow_headers=["*"])
+app.add_middleware(CORSMiddleware, allow_origins=os.getenv("VYRALIS_CORS_ORIGINS", "http://localhost:5173").split(","), allow_credentials=False, allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"], allow_headers=["*"])
+
+
+BASIC_AUTH = os.getenv("VYRALIS_BASIC_AUTH", "").strip()
+
+
+@app.middleware("http")
+async def require_basic_auth(request: Request, call_next):
+    """Optional HTTP Basic gate for hosted deployments.
+
+    Off by default so local development stays frictionless. When VYRALIS_BASIC_AUTH is
+    set (``user:password``), every API route except health checks and the OAuth callback
+    requires the same credentials; browsers reuse them for the studio's fetch calls.
+    """
+    path = request.url.path
+    if not BASIC_AUTH or path == "/api/health" or path.startswith("/api/oauth/"):
+        return await call_next(request)
+    header = request.headers.get("authorization", "")
+    if header.startswith("Basic "):
+        try:
+            decoded = base64.b64decode(header[6:]).decode("utf-8")
+        except (ValueError, UnicodeDecodeError):
+            decoded = ""
+        if hmac.compare_digest(decoded, BASIC_AUTH):
+            return await call_next(request)
+    return Response(status_code=401, headers={"WWW-Authenticate": 'Basic realm="VYRALIS Studio"'}, content="Authentication required.")
 
 
 def now() -> str:
@@ -90,6 +121,15 @@ def init_db() -> None:
         CREATE TABLE IF NOT EXISTS clip_packaging(clip_id TEXT NOT NULL REFERENCES clips(id),destination TEXT NOT NULL,title TEXT NOT NULL,description TEXT NOT NULL,hashtags TEXT NOT NULL,approved INTEGER NOT NULL DEFAULT 0,approved_at TEXT,updated_at TEXT NOT NULL,PRIMARY KEY(clip_id,destination));
         CREATE TABLE IF NOT EXISTS transcripts(project_id TEXT PRIMARY KEY REFERENCES projects(id),segments TEXT NOT NULL,words TEXT NOT NULL,created_at TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS sources(project_id TEXT PRIMARY KEY REFERENCES projects(id),platform TEXT NOT NULL,url TEXT NOT NULL,title TEXT NOT NULL,uploader TEXT,metadata TEXT,rights_attested_at TEXT,created_at TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS platform_accounts(
+            id TEXT PRIMARY KEY, platform TEXT NOT NULL, external_id TEXT NOT NULL,
+            display_name TEXT NOT NULL, avatar_url TEXT, scopes TEXT, access_token TEXT NOT NULL,
+            refresh_token TEXT, token_expires_at TEXT, metrics TEXT, metrics_synced_at TEXT,
+            extra TEXT, status TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+            UNIQUE(platform, external_id));
+        CREATE TABLE IF NOT EXISTS oauth_states(state TEXT PRIMARY KEY, platform TEXT NOT NULL,
+            code_verifier TEXT, redirect_uri TEXT NOT NULL, next_path TEXT, created_at REAL NOT NULL);
+        CREATE INDEX IF NOT EXISTS idx_oauth_states_created ON oauth_states(created_at);
         """)
     ensure_column("clips", "hook", "TEXT")
     ensure_column("clip_exports", "options", "TEXT")
@@ -102,6 +142,9 @@ def ensure_column(table: str, column: str, ddl: str) -> None:
         columns = {row["name"] for row in db.execute(f"PRAGMA table_info({table})").fetchall()}
         if column not in columns:
             db.execute(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}")
+
+
+CIPHER = accounts.load_cipher(ROOT)
 
 
 def run(cmd: list[str], timeout: int = 3600) -> subprocess.CompletedProcess[str]:
@@ -576,7 +619,7 @@ def startup() -> None:
 
 @app.get("/api/health")
 def health() -> dict[str,Any]:
-    return {"status":"ok","version":"0.3.0","capabilities":["persistent-sqlite","media-upload","ffprobe-validation","ffmpeg-audio-extraction","faster-whisper-transcription","ranked-clip-candidates","mp4-export","export-presets","render-quality-inspection","packaging-approval","job-cancellation","link-ingestion","youtube-twitch-kick-url-ingestion","word-timed-captions","hook-titles","subject-framing"]}
+    return {"status":"ok","version":"0.3.0","capabilities":["persistent-sqlite","media-upload","ffprobe-validation","ffmpeg-audio-extraction","faster-whisper-transcription","ranked-clip-candidates","mp4-export","export-presets","render-quality-inspection","packaging-approval","job-cancellation","link-ingestion","youtube-twitch-kick-url-ingestion","word-timed-captions","hook-titles","subject-framing","oauth-connections","live-platform-metrics"]}
 
 
 @app.get("/api/assets")
@@ -1066,3 +1109,292 @@ def clip_captions(clip_id: str, format: str = "srt", style: str = DEFAULT_STYLE)
         media_type=media,
         headers={"Content-Disposition": f'attachment; filename="{slug}-{style}.{extension}"'},
     )
+
+
+# --------------------------------------------------------------------------- #
+# Social platform connections (OAuth)
+# --------------------------------------------------------------------------- #
+
+class ConnectionStartRequest(BaseModel):
+    next_path: str = Field(default="/connections", max_length=200)
+
+
+def public_base(request: Request) -> str:
+    """The externally reachable origin, so provider callbacks land on the right host."""
+    public_url = os.getenv("VYRALIS_PUBLIC_URL", "").strip().rstrip("/")
+    if public_url:
+        return public_url
+    forwarded_proto = request.headers.get("x-forwarded-proto", "").split(",")[0].strip()
+    forwarded_host = request.headers.get("x-forwarded-host", "").split(",")[0].strip()
+    scheme = forwarded_proto or request.url.scheme
+    host = forwarded_host or request.headers.get("host") or request.url.netloc
+    return f"{scheme}://{host}"
+
+
+def frontend_base(request: Request) -> str:
+    frontend_url = os.getenv("VYRALIS_FRONTEND_URL", "").strip().rstrip("/")
+    if frontend_url:
+        return frontend_url
+    origin = request.headers.get("origin", "").strip()
+    return origin or ""
+
+
+def serialize_account(row: sqlite3.Row) -> dict[str, Any]:
+    metrics: dict[str, Any] = {}
+    try:
+        metrics = json.loads(row["metrics"]) if row["metrics"] else {}
+    except json.JSONDecodeError:
+        metrics = {}
+    extra: dict[str, Any] = {}
+    try:
+        extra = json.loads(row["extra"]) if row["extra"] else {}
+    except json.JSONDecodeError:
+        extra = {}
+    scopes: list[str] = []
+    try:
+        scopes = json.loads(row["scopes"]) if row["scopes"] else []
+    except json.JSONDecodeError:
+        scopes = []
+    return {
+        "id": row["id"],
+        "platform": row["platform"],
+        "display_name": row["display_name"],
+        "avatar_url": row["avatar_url"],
+        "metrics": metrics,
+        "metrics_synced_at": row["metrics_synced_at"],
+        "status": row["status"],
+        "scopes": scopes,
+        "extra": extra,
+        "connected_at": row["created_at"],
+        "updated_at": row["updated_at"],
+    }
+
+
+def store_account(platform: str, identity: dict[str, Any], tokens: dict[str, Any], client_scopes: list[str]) -> dict[str, Any]:
+    """Insert or refresh the connected account; tokens are encrypted before they touch disk."""
+    external_id = str(identity.get("external_id") or "")
+    if not external_id:
+        raise OAuthError("The platform did not return an account id.")
+    stamp = now()
+    scopes = tokens.get("scopes") or client_scopes
+    with connect() as db:
+        existing = db.execute(
+            "SELECT * FROM platform_accounts WHERE platform=? AND external_id=?",
+            (platform, external_id),
+        ).fetchone()
+        account_id = existing["id"] if existing else str(uuid.uuid4())
+        encrypted_access = CIPHER.encrypt(tokens["access_token"])
+        encrypted_refresh = CIPHER.encrypt(tokens.get("refresh_token") or "")
+        if existing and not tokens.get("refresh_token") and existing["refresh_token"]:
+            encrypted_refresh = existing["refresh_token"]
+        db.execute(
+            "INSERT INTO platform_accounts(id,platform,external_id,display_name,avatar_url,scopes,access_token,"
+            "refresh_token,token_expires_at,metrics,metrics_synced_at,extra,status,created_at,updated_at) "
+            "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
+            "ON CONFLICT(platform,external_id) DO UPDATE SET display_name=excluded.display_name,"
+            "avatar_url=excluded.avatar_url,scopes=excluded.scopes,access_token=excluded.access_token,"
+            "refresh_token=excluded.refresh_token,token_expires_at=excluded.token_expires_at,"
+            "metrics=excluded.metrics,metrics_synced_at=excluded.metrics_synced_at,extra=excluded.extra,"
+            "status='connected',updated_at=excluded.updated_at",
+            (
+                account_id, platform, external_id, identity.get("display_name") or platform.title(),
+                identity.get("avatar_url"), json.dumps(scopes), encrypted_access, encrypted_refresh,
+                tokens.get("expires_at"), json.dumps(identity.get("metrics") or {}), stamp,
+                json.dumps(identity.get("extra") or {}), "connected", stamp, stamp,
+            ),
+        )
+        row = db.execute("SELECT * FROM platform_accounts WHERE id=?", (account_id,)).fetchone()
+    return serialize_account(row)
+
+
+def account_tokens(row: sqlite3.Row) -> dict[str, Any]:
+    """Decrypt an account's tokens, refreshing them first when they have expired."""
+    access = CIPHER.decrypt(row["access_token"])
+    refresh = CIPHER.decrypt(row["refresh_token"])
+    expires_at = row["token_expires_at"]
+    if accounts.token_is_expired(expires_at) and refresh:
+        try:
+            tokens = accounts.refresh_access_token(row["platform"], refresh)
+        except AccountError:
+            return {"access_token": access, "refresh_token": refresh, "expired": True}
+        access = tokens["access_token"]
+        new_refresh = tokens.get("refresh_token") or refresh
+        with connect() as db:
+            db.execute(
+                "UPDATE platform_accounts SET access_token=?,refresh_token=?,token_expires_at=?,updated_at=? WHERE id=?",
+                (CIPHER.encrypt(access), CIPHER.encrypt(new_refresh), tokens.get("expires_at"), now(), row["id"]),
+            )
+        return {"access_token": access, "refresh_token": new_refresh, "expires_at": tokens.get("expires_at")}
+    return {"access_token": access, "refresh_token": refresh, "expires_at": expires_at}
+
+
+@app.get("/api/connections")
+def list_connections(request: Request) -> dict[str, Any]:
+    with connect() as db:
+        rows = db.execute("SELECT * FROM platform_accounts ORDER BY platform").fetchall()
+    accounts_by_platform: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        accounts_by_platform.setdefault(row["platform"], []).append(serialize_account(row))
+    providers = []
+    base = public_base(request)
+    for provider in accounts.provider_info():
+        providers.append({
+            **provider,
+            "callback_url": accounts.callback_url(base, provider["key"]),
+            "accounts": accounts_by_platform.get(provider["key"], []),
+        })
+    return {"providers": providers, "generated_at": now()}
+
+
+@app.post("/api/connections/{platform}/start")
+def start_connection(platform: str, payload: ConnectionStartRequest, request: Request) -> dict[str, Any]:
+    try:
+        provider = accounts.get_provider(platform)
+        client_id, _ = provider.credentials()
+    except ProviderNotConfigured as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except AccountError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    state = accounts.new_state()
+    verifier = challenge = None
+    if provider.uses_pkce:
+        verifier, challenge = accounts.pkce_pair()
+    redirect_uri = accounts.callback_url(public_base(request), platform)
+    authorize_url = accounts.build_authorize_url(
+        platform, client_id=client_id, redirect_uri=redirect_uri, state=state, code_challenge=challenge,
+    )
+    with connect() as db:
+        # Expired states are useless; drop them so the table cannot grow unbounded.
+        db.execute("DELETE FROM oauth_states WHERE created_at < ?", (time.time() - accounts.STATE_TTL_SECONDS,))
+        db.execute(
+            "INSERT INTO oauth_states(state,platform,code_verifier,redirect_uri,next_path,created_at) VALUES(?,?,?,?,?,?)",
+            (state, platform, verifier, redirect_uri, payload.next_path, time.time()),
+        )
+    return {"platform": platform, "authorize_url": authorize_url, "callback_url": redirect_uri}
+
+
+@app.get("/api/oauth/{platform}/callback")
+def oauth_callback(
+    platform: str,
+    request: Request,
+    code: str = "",
+    state: str = "",
+    error: str = "",
+    error_description: str = "",
+) -> Response:
+    """Provider redirect target. Always ends in a browser redirect, never raw JSON."""
+
+    def back(query: str) -> RedirectResponse:
+        base = frontend_base(request) or ""
+        target = f"{base}/connections?{query}" if base else f"/connections?{query}"
+        return RedirectResponse(url=target, status_code=303)
+
+    if error:
+        detail = error_description or error
+        return back(f"error={quote(detail)}&platform={quote(platform)}")
+    if not code or not state:
+        return back("error=The+provider+did+not+return+an+authorization+code.&platform=" + quote(platform))
+    with connect() as db:
+        row = db.execute("SELECT * FROM oauth_states WHERE state=? AND platform=?", (state, platform)).fetchone()
+        db.execute("DELETE FROM oauth_states WHERE state=?", (state,))
+    if row is None:
+        return back("error=This+connection+link+expired+or+was+already+used.+Start+again.&platform=" + quote(platform))
+    if not accounts.state_is_fresh(row["created_at"]):
+        return back("error=This+connection+link+expired.+Start+again.&platform=" + quote(platform))
+    try:
+        try:
+            provider = accounts.get_provider(platform)
+        except AccountError as exc:
+            raise OAuthError(str(exc)) from exc
+        tokens = accounts.exchange_code(
+            platform, code, redirect_uri=row["redirect_uri"], code_verifier=row["code_verifier"],
+        )
+        identity = accounts.fetch_identity(platform, tokens["access_token"])
+        store_account(platform, identity, tokens, list(provider.scopes))
+    except (AccountError, OAuthError) as exc:
+        return back(f"error={quote(str(exc))}&platform={quote(platform)}")
+    return back(f"connected={quote(platform)}")
+
+
+@app.post("/api/connections/{account_id}/sync")
+def sync_connection(account_id: str) -> dict[str, Any]:
+    with connect() as db:
+        row = db.execute("SELECT * FROM platform_accounts WHERE id=?", (account_id,)).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Connected account not found.")
+    tokens = account_tokens(row)
+    try:
+        identity = accounts.fetch_identity(row["platform"], tokens["access_token"])
+    except (AccountError, OAuthError) as exc:
+        with connect() as db:
+            db.execute("UPDATE platform_accounts SET status='error',updated_at=? WHERE id=?", (now(), account_id))
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    stamp = now()
+    with connect() as db:
+        db.execute(
+            "UPDATE platform_accounts SET display_name=?,avatar_url=?,metrics=?,metrics_synced_at=?,"
+            "extra=?,status='connected',updated_at=? WHERE id=?",
+            (
+                identity.get("display_name") or row["display_name"], identity.get("avatar_url"),
+                json.dumps(identity.get("metrics") or {}), stamp, json.dumps(identity.get("extra") or {}),
+                stamp, account_id,
+            ),
+        )
+        updated = db.execute("SELECT * FROM platform_accounts WHERE id=?", (account_id,)).fetchone()
+    return serialize_account(updated)
+
+
+@app.delete("/api/connections/{account_id}")
+def disconnect(account_id: str) -> dict[str, Any]:
+    with connect() as db:
+        row = db.execute("SELECT * FROM platform_accounts WHERE id=?", (account_id,)).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Connected account not found.")
+    with connect() as db:
+        db.execute("DELETE FROM platform_accounts WHERE id=?", (account_id,))
+    return {"disconnected": account_id, "platform": row["platform"]}
+
+
+@app.get("/api/metrics")
+def studio_metrics() -> dict[str, Any]:
+    """Real workspace numbers from the database plus the last synced platform metrics."""
+    with connect() as db:
+        assets = db.execute("SELECT COUNT(*) AS n, COALESCE(SUM(size),0) AS bytes FROM assets").fetchone()
+        projects = db.execute("SELECT COUNT(*) AS n FROM projects").fetchone()
+        clips = db.execute("SELECT COUNT(*) AS n FROM clips").fetchone()
+        exports = db.execute(
+            "SELECT COUNT(*) AS total, "
+            "SUM(CASE WHEN status='ready' THEN 1 ELSE 0 END) AS ready, "
+            "SUM(CASE WHEN status='failed' THEN 1 ELSE 0 END) AS failed, "
+            "SUM(CASE WHEN status IN ('queued','rendering','validating') THEN 1 ELSE 0 END) AS active "
+            "FROM clip_exports"
+        ).fetchone()
+        reports = db.execute("SELECT quality_report FROM clip_exports WHERE quality_report IS NOT NULL").fetchall()
+        accounts_rows = db.execute("SELECT * FROM platform_accounts ORDER BY platform").fetchall()
+
+    quality: dict[str, int] = {"pass": 0, "warn": 0, "fail": 0}
+    for row in reports:
+        try:
+            status = json.loads(row["quality_report"]).get("status")
+        except (json.JSONDecodeError, AttributeError):
+            continue
+        if status in quality:
+            quality[status] += 1
+    return {
+        "studio": {
+            "assets": assets["n"] or 0,
+            "storage_bytes": assets["bytes"] or 0,
+            "projects": projects["n"] or 0,
+            "clips": clips["n"] or 0,
+            "exports": {
+                "total": exports["total"] or 0,
+                "ready": exports["ready"] or 0,
+                "failed": exports["failed"] or 0,
+                "active": exports["active"] or 0,
+            },
+            "quality": quality,
+        },
+        "accounts": [serialize_account(row) for row in accounts_rows],
+        "generated_at": now(),
+    }
