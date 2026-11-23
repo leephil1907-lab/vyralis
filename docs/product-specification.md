@@ -92,3 +92,27 @@ Official platform OAuth, destination adapters, scheduling, publish logs, metrics
 
 ### Release 5 — Scale and polish
 Hosted worker fleet, team collaboration, desktop packaging, GPU acceleration, reliability and accessibility audit.
+
+
+## Product experience rule — this is an application, not a tool directory
+
+VYRALIS must be presented and built as one cohesive clipping, editing and automated publishing application. Open-source projects, models and processing engines are internal implementation dependencies. They must not be exposed as a public catalogue, marketplace, plugin directory or collection of unrelated tools.
+
+The primary navigation and product hierarchy must centre on creator work:
+- Dashboard
+- Projects
+- Create clips
+- Editor
+- Publishing calendar
+- Connected channels
+- Analytics
+- Brand kit
+- Settings
+
+The primary user journey is import video → analyse → generate clips → edit/review → approve → schedule/publish → measure results. The user should not need to understand which model or upstream repository performs each step.
+
+The dashboard should prioritize active projects, recent clips, processing progress, drafts awaiting approval, scheduled posts, connected-channel status and publishing outcomes. Engine diagnostics belong under Settings or an advanced system status panel.
+
+Publishing automation is a first-class workflow, not an afterthought. Users must be able to connect supported channels using official authorization flows, prepare platform-specific post metadata, select destinations, schedule publication, monitor delivery, retry recoverable failures and inspect published post links. Unsupported platform capabilities must be clearly unavailable rather than simulated.
+
+Do not show dead navigation, fake metrics, placeholder controls, mock posting states or sample clips as real user content. Each screen must be backed by a working workflow or clearly marked as not yet released. The interface should feel like a premium, unified creator studio rather than a technical dashboard for developers.
