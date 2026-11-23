@@ -297,3 +297,12 @@ def retry_job(job_id: str) -> dict[str,Any]:
         db.execute("UPDATE jobs SET status='queued',stage='queued',progress=0,error=NULL,message='Retry queued',updated_at=? WHERE id=?",(now(),job_id))
         db.execute("UPDATE projects SET status='queued',updated_at=? WHERE id=?",(now(),row["project_id"]))
     enqueue(job_id); return {"id":job_id,"status":"queued"}
+
+
+@app.get("/api/projects/{project_id}/source")
+def project_source(project_id: str) -> FileResponse:
+    with connect() as db:
+        row = db.execute("SELECT a.path,a.filename FROM projects p JOIN assets a ON a.id=p.asset_id WHERE p.id=?", (project_id,)).fetchone()
+    if not row or not Path(row["path"]).is_file():
+        raise HTTPException(status_code=404, detail="Source media is unavailable.")
+    return FileResponse(row["path"], media_type="video/mp4", filename=row["filename"])
