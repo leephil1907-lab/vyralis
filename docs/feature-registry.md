@@ -1,0 +1,100 @@
+# VYRALIS Studio — Complete Feature Registry
+
+This is the canonical product inventory. A feature is implemented only when its UI, API, persistence, security controls and acceptance tests work together. A visible screen or roadmap item is not implementation.
+
+## Status vocabulary
+- Working foundation: a real but limited workflow exists.
+- In progress: code exists but is incomplete or not verified end to end.
+- Planned: defined scope, not available yet.
+- Blocked by provider: requires approval, credentials, commercial terms or third-party capability.
+
+## P0 — Core clipping workflow
+| Feature | Scope | Current status |
+|---|---|---|
+| Local media import | MP4, MOV, MKV, WebM, AVI; streamed upload; size limits; FFprobe validation | Working foundation; strengthen MIME sniffing and isolation |
+| Project creation | Persistent project/source association and processing options | Working foundation |
+| Processing jobs | Queued/running/completed/failed, progress and restart recovery | Working foundation; add cancellation, idempotency and durable queue |
+| Audio extraction | FFmpeg mono 16 kHz WAV | Working foundation |
+| Transcription | faster-whisper segments and word timestamps | Working foundation; language and accuracy QA required |
+| Highlight discovery | Transcript-window candidates and score breakdown | Working foundation; heuristic only, not trained virality prediction |
+| Candidate review | Ranked candidates, source preview, transcript and timecodes | Working foundation; verify full journey |
+| Clip editing | Adjust start/end/title | Working foundation; add split, merge, undo and versions |
+| MP4 export | FFmpeg H.264/AAC vertical render | Working foundation; add output validation and layout presets |
+| Download | Download rendered clip | Working foundation |
+
+P0 acceptance: a rights-cleared video completes upload → processing → review → edit → export → download; job recovery and retry are safe; clip bounds stay within source duration; output decodes and has expected duration, dimensions and audio.
+
+## P1 — Analysis intelligence
+- Word-level alignment, language detection and transcript correction.
+- Speaker diarization with labels and confidence.
+- Scene/shot detection, sampled-frame analysis and visual-event cues.
+- Audio loudness, silence, speech activity, peaks and clipping analysis.
+- Semantic moment detection: hook, setup, payoff, context completeness and repetition.
+- Explainable ranking with evidence, confidence and configurable weights.
+- Candidate deduplication, duration presets, clip count and language filters.
+- Optional permitted stream signals through approved APIs.
+- Manual accept/reject and feedback capture.
+
+## P2 — Professional editor and creative finishing
+- Multi-track timeline, source/program monitors and frame-accurate seeking.
+- Transcript-linked trim, split, merge, ripple edits and undo/redo.
+- Non-destructive edit decision lists and version history.
+- Auto-reframe for 9:16, 1:1, 16:9 and custom dimensions.
+- Subject/face tracking, speaker-aware layouts and manual keyframes.
+- Caption Lab: word timing, templates, karaoke emphasis, speaker colors, safe zones and multilingual variants.
+- Titles, hooks, lower thirds, transitions, zooms, overlays, stickers and progress indicators.
+- Audio gain, ducking, noise reduction and licensed music selection.
+- B-roll/image overlays with attribution and usage-rights metadata.
+- Brand kits: logo, palette, type, watermark, intro/outro and presets.
+- Batch rendering, render presets, output validation and retryable queue.
+
+## P3 — Repurposing and publishing
+- Per-destination aspect ratio, duration, title, description, hashtags, thumbnail and accessibility text.
+- Draft preview and platform-specific validation.
+- Timezone-aware calendar and schedule collision checks.
+- Official OAuth, encrypted credentials, scope display and revocation.
+- Publishing adapters with capability discovery, resumable uploads, retries, rate limits and delivery receipts.
+- Start with officially supported YouTube and approved Meta flows; assess TikTok and other networks independently.
+- Human approval by default; no password collection or simulated posting.
+- Post history, destination URLs, delivery logs and failure recovery.
+
+## P4 — Analytics and growth intelligence
+- Import only metrics exposed by authorized platform APIs.
+- Views, watch time, retention, engagement and audience metrics where available.
+- Compare content by hook, topic, format, length and publish time.
+- Creator/channel audit using authorized profile/account data.
+- Niche discovery, trend freshness, geography and source provenance.
+- Demand, competition, evergreen potential and monetization-fit estimates with transparent methodology.
+- Content gaps, recurring series, ideas, scripts, hooks, CTAs and repurpose plans.
+- Thumbnail/title experiments and performance feedback loops.
+- Never fabricate live trends, RPM, revenue, reach or guaranteed virality.
+
+## P5 — StoryLab and workflow automation
+- Topic brief, audience, objective, format and tone.
+- Research-backed outline with source capture and fact verification.
+- Scene-by-scene storyboard with narration, visual direction, shot prompts and duration.
+- Reference-image/style continuity and asset rights metadata.
+- Provider adapters for image, video, voice and sound generation.
+- Typed node graph for research, script, storyboard, media, voice, composition, captions, quality gate and publishing.
+- Branching, parallel steps, reusable templates, autosave, versions, previews and downstream reruns.
+- Durable workflow execution with logs, retries and cancellation.
+
+## P6 — Accounts, collaboration and operations
+- Secure authentication, email verification, recovery and sessions.
+- Workspace/project authorization and tenant isolation.
+- Roles, invitations, teams, comments, review/approval and audit history.
+- Private object storage, signed expiring URLs and quotas.
+- Data export, retention, deletion and backup/restore.
+- Admin diagnostics, queue health, worker capacity and provider health.
+- Usage metering, plans, credits, invoices and payment integration.
+- Accessibility, keyboard navigation, reduced motion and mobile review.
+- Desktop/local worker mode and hosted isolated processing mode.
+
+## Global acceptance rules
+1. No dead buttons, fake data or pretend provider connections.
+2. Every feature has a real service/API, persisted state where required, useful loading/error/empty states and tests.
+3. External integrations document scopes, quotas, regional limits, pricing and approval status.
+4. Secrets never enter Git, browser bundles, logs or client-visible errors.
+5. Media operations enforce resource limits, safe subprocess arguments, cleanup and observable failure states.
+6. AI outputs are estimates with evidence and manual controls.
+7. Each release includes tested migrations, rollback notes and an operations runbook.
