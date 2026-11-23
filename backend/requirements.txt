@@ -3,4 +3,4 @@ uvicorn[standard]==0.34.0
 python-multipart==0.0.20
 pydantic-settings==2.7.0
 faster-whisper==1.1.1
-yt-dlp>=2026.10.26
+yt-dlp>=2025.11.12,<2027

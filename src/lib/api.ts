@@ -46,6 +46,10 @@ export const api = {
     body.append("file", file);
     return request<MediaAsset>("/api/assets", { method: "POST", body });
   },
+  ingestUrl: (url: string, rightsConfirmed: boolean) => request<Project>("/api/ingest/url", {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url, rights_confirmed: rightsConfirmed, clip_count: 8, min_duration: 15, max_duration: 60 })
+  }),
   createProject: (assetId: string) => request<Project>("/api/projects", {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ asset_id: assetId, clip_count: 8, min_duration: 15, max_duration: 60 })

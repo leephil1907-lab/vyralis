@@ -12,6 +12,7 @@ This is the canonical product inventory. A feature is implemented only when its 
 | Feature | Scope | Current status |
 |---|---|---|
 | Local media import | MP4, MOV, MKV, WebM, AVI; streamed upload; size limits; FFprobe validation | Working foundation; strengthen MIME sniffing and isolation |
+| Video link ingestion | Background import for eligible public YouTube, Twitch and Kick URLs; rights confirmation; source validation; then same analysis pipeline | Implemented foundation; provider availability and permitted access vary; verify on deployment |
 | Project creation | Persistent project/source association and processing options | Working foundation |
 | Processing jobs | Queued/running/completed/failed, progress and restart recovery | Working foundation; add cancellation, idempotency and durable queue |
 | Audio extraction | FFmpeg mono 16 kHz WAV | Working foundation |
@@ -32,7 +33,7 @@ This is the canonical product inventory. A feature is implemented only when its 
 | Auto-reframe | Centre crop, blurred-fill layout, optional face-tracked focus with damped smoothing | Working foundation; face tracking needs the optional vision extra and is reported honestly when unavailable |
 | Hook lines and titles | Extractive hook/title/hashtag suggestions from the transcript, editable per clip | Working foundation; heuristic, not a virality model |
 
-P0 acceptance: a rights-cleared video completes upload → processing → review → edit → export → quality inspection → download → packaging → approval; job recovery, cancellation and retry are safe; clip bounds stay within source duration; output decodes and has expected duration, dimensions and audio. Media-dependent acceptance still needs licensed CI fixtures — see the open roadmap items.
+P0 acceptance: a rights-cleared local upload — or an eligible provider link, subject to platform access, permissions and availability — completes ingestion → source validation → processing → review → edit → export → quality inspection → download → packaging → approval; job recovery, cancellation and retry are safe; clip bounds stay within source duration; output decodes with the requested captions and framing, and has the expected duration, dimensions and audio. Media-dependent acceptance still needs licensed CI fixtures — see the open roadmap items.
 
 ## P1 — Analysis intelligence
 - Word-level alignment, language detection and transcript correction.

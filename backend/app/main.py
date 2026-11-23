@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import json
 import os
+import ipaddress
 import re
+import socket
 import shutil
 import sqlite3
 import subprocess
@@ -252,7 +254,7 @@ def process_job(job_id: str) -> None:
             project=db.execute("SELECT * FROM projects WHERE id=?",(job["project_id"],)).fetchone()
             asset=db.execute("SELECT * FROM assets WHERE id=?",(project["asset_id"],)).fetchone()
         options=json.loads(job["options"])
-        if options.get("kind")=="ingest":
+        if options.get("kind") in {"ingest","url_ingest"}:
             download_source(job_id, asset, options)
             with connect() as db:
                 kind_meta=probe(Path(asset["path"]))
@@ -480,6 +482,44 @@ def enqueue(job_id: str) -> None:
         POOL.submit(process_job,job_id)
 
 
+class URLIngestRequest(BaseModel):
+    """Legacy /api/ingest/url contract kept for compatible clients."""
+
+    url: str = Field(min_length=8, max_length=2048)
+    rights_confirmed: bool
+    clip_count: int = Field(default=8, ge=1, le=20)
+    min_duration: int = Field(default=15, ge=5, le=120)
+    max_duration: int = Field(default=60, ge=10, le=180)
+
+
+def validate_source_url(value: str) -> str:
+    """Validate a public provider link for the legacy ingestion endpoint.
+
+    Combines the shared URL policy in ``ingest.parse_source_url`` (scheme, host allowlist,
+    credentials, ports) with a DNS resolution check, so a provider hostname that resolves
+    to a private or link-local address is rejected before any worker sees it.
+    """
+    try:
+        parsed = parse_source_url(value)
+    except SourceRejected as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    host = parsed["host"]
+    try:
+        addresses = socket.getaddrinfo(host, 443, type=socket.SOCK_STREAM)
+    except (socket.gaierror, OSError) as exc:
+        raise HTTPException(status_code=422, detail="The source host could not be resolved.") from exc
+    if not addresses:
+        raise HTTPException(status_code=422, detail="The source host could not be resolved.")
+    for entry in addresses:
+        try:
+            address = ipaddress.ip_address(entry[4][0])
+        except (ValueError, IndexError) as exc:
+            raise HTTPException(status_code=422, detail="The source host resolved to an invalid address.") from exc
+        if not address.is_global:
+            raise HTTPException(status_code=422, detail="This source host does not resolve to a public internet address.")
+    return parsed["url"]
+
+
 class ProjectRequest(BaseModel):
     asset_id: str
     clip_count: int = Field(default=8,ge=1,le=20)
@@ -536,7 +576,7 @@ def startup() -> None:
 
 @app.get("/api/health")
 def health() -> dict[str,Any]:
-    return {"status":"ok","version":"0.3.0","capabilities":["persistent-sqlite","media-upload","ffprobe-validation","ffmpeg-audio-extraction","faster-whisper-transcription","ranked-clip-candidates","mp4-export","export-presets","render-quality-inspection","packaging-approval","job-cancellation","link-ingestion","word-timed-captions","hook-titles","subject-framing"]}
+    return {"status":"ok","version":"0.3.0","capabilities":["persistent-sqlite","media-upload","ffprobe-validation","ffmpeg-audio-extraction","faster-whisper-transcription","ranked-clip-candidates","mp4-export","export-presets","render-quality-inspection","packaging-approval","job-cancellation","link-ingestion","youtube-twitch-kick-url-ingestion","word-timed-captions","hook-titles","subject-framing"]}
 
 
 @app.get("/api/assets")
@@ -568,6 +608,37 @@ async def upload_asset(file: UploadFile = File(...)) -> dict[str,Any]:
     with connect() as db:
         db.execute("INSERT INTO assets(id,filename,size,content_type,path,created_at,duration_seconds,width,height) VALUES(?,?,?,?,?,?,?,?,?)",(asset_id,asset["filename"],size,asset["content_type"],str(target),asset["created_at"],meta["duration_seconds"],meta["width"],meta["height"]))
     return asset
+
+
+@app.post("/api/ingest/url")
+def ingest_url(payload: URLIngestRequest) -> dict[str, Any]:
+    """Compatibility endpoint: same queue and worker path as /api/projects/from-link."""
+    if not payload.rights_confirmed:
+        raise HTTPException(status_code=400, detail="Confirm that you have permission to download and process this video.")
+    source_url = validate_source_url(payload.url)
+    platform = parse_source_url(source_url)["platform"]
+    project_id, asset_id, job_id = str(uuid.uuid4()), str(uuid.uuid4()), str(uuid.uuid4())
+    timestamp = now()
+    title = "Linked video " + asset_id[:8]
+    target = MEDIA / f"{asset_id}.mp4"
+    options = {
+        "kind": "ingest",
+        "source_url": source_url,
+        "platform": platform,
+        "clip_count": payload.clip_count,
+        "min_duration": payload.min_duration,
+        "max_duration": payload.max_duration,
+    }
+    with connect() as db:
+        db.execute("INSERT INTO assets(id,filename,size,content_type,path,created_at,duration_seconds,width,height) VALUES(?,?,?,?,?,?,?,?,?)",
+                   (asset_id, title + ".mp4", 0, "video/mp4", str(target), timestamp, None, None, None))
+        db.execute("INSERT INTO projects VALUES(?,?,?,?,?,?)", (project_id, asset_id, title, "queued", timestamp, timestamp))
+        db.execute("INSERT INTO jobs VALUES(?,?,?,?,?,?,?,?,?,?)",
+                   (job_id, project_id, "queued", "queued", 0, "Waiting for source ingestion", json.dumps(options), None, timestamp, timestamp))
+        db.execute("INSERT INTO sources(project_id,platform,url,title,uploader,metadata,rights_attested_at,created_at) VALUES(?,?,?,?,?,?,?,?)",
+                   (project_id, platform, source_url, title, "", "{}", timestamp, timestamp))
+    enqueue(job_id)
+    return {"id": project_id, "title": title, "status": "queued", "job_id": job_id, "created_at": timestamp}
 
 
 @app.post("/api/projects")

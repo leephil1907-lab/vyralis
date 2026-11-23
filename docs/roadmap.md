@@ -14,9 +14,10 @@ The canonical scope is in docs/feature-registry.md. A feature is complete only a
 - [x] Manual clip start/end/title editing.
 - [x] FFmpeg vertical MP4 export and download endpoint.
 - [x] Startup recovery for queued/processing jobs.
-- [ ] Verify the full flow against a representative rights-cleared media test fixture in CI.
+- [ ] Verify the full local-upload and URL-ingestion flows against representative rights-cleared media fixtures in CI.
 - [x] Add output probing and media-quality checks (duration, dimensions, codecs, black frames, frozen frames, loudness) with a stored report per export.
-- [ ] Add caption, framing and frame-sampling checks plus render regression tests against licensed fixtures.
+- [x] Caption burn-in, reframing and hook overlays applied during render and recorded in the export report.
+- [ ] Add render regression tests against licensed fixtures (caption fit, crop windows, blurred fill).
 - [ ] Harden MIME sniffing, path isolation, upload quotas and cleanup.
 - [x] Add job cancellation with worker checkpoints and idempotent export requests.
 - [ ] Add bounded queue semantics, worker preemption and job-attempt history.
@@ -44,7 +45,8 @@ The canonical scope is in docs/feature-registry.md. A feature is complete only a
 - [ ] Render queue, retries and output quality gate.
 
 ## Release 3 — Supported source ingestion
-- [ ] Source adapter interface and URL metadata preview.
+- [x] Background URL ingestion endpoint for supported YouTube, Twitch and Kick links, with rights confirmation, allowlisted host validation, download size cap and FFprobe validation.
+- [ ] Source adapter interface, provider-specific metadata preview and richer failure diagnostics.
 - [ ] Official/authorized YouTube, Twitch and Kick VOD paths where permitted.
 - [ ] Caption/transcript resolution and audio-first analysis where available.
 - [ ] Selective segment retrieval when the provider supports it.
