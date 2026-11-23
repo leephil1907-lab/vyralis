@@ -116,3 +116,35 @@ The dashboard should prioritize active projects, recent clips, processing progre
 Publishing automation is a first-class workflow, not an afterthought. Users must be able to connect supported channels using official authorization flows, prepare platform-specific post metadata, select destinations, schedule publication, monitor delivery, retry recoverable failures and inspect published post links. Unsupported platform capabilities must be clearly unavailable rather than simulated.
 
 Do not show dead navigation, fake metrics, placeholder controls, mock posting states or sample clips as real user content. Each screen must be backed by a working workflow or clearly marked as not yet released. The interface should feel like a premium, unified creator studio rather than a technical dashboard for developers.
+
+
+## First-class link ingestion — required core capability
+
+Importing is not limited to local uploads. A source URL field is a primary entry point on the Create Clips screen, equal in importance to the file picker. Users can paste supported YouTube video/VOD URLs, Twitch VOD URLs, Kick VOD URLs, and supported live-stream URLs. The system resolves and validates the source, displays title/channel/duration/thumbnail when available, lets the user choose clip count, duration range, language, analysis mode and output layout, then starts a durable clipping job.
+
+The link workflow must not force users to download a full long-form video before analysis. Use a source adapter:
+- Fetch permitted platform captions/transcripts and timestamps when available.
+- Extract or stream audio for audio-first analysis where supported.
+- Score loudness changes, raised-voice energy, speech/context and silence-to-energy transitions.
+- Optionally run deeper visual analysis using sampled frames, optical flow and scene changes.
+- Rank candidate windows, then fetch only selected video ranges when the source provider supports reliable section downloads.
+- Align selected video ranges to audio timestamps and render vertical clips.
+- Fall back to full source download only when necessary and permitted.
+
+For live sources, a separate live-capture workflow records or buffers an authorized stream, monitors available audio/chat signals, detects spikes and creates reviewable clips. Live capture must expose recording status, disk use, stop controls, source connectivity and retention settings. Never imply that a live platform link can be clipped when its stream cannot be accessed by the selected adapter.
+
+Each source adapter must implement URL parsing, domain allowlisting, canonicalization, availability checks, metadata lookup, caption access, audio extraction, range download, live capabilities, rate-limit handling and actionable errors. Do not accept arbitrary URLs as shell commands or fetch arbitrary internal/private network destinations. Revalidate every redirect and resolved IP to prevent SSRF. Respect platform terms, rights and applicable restrictions; do not bypass authentication, DRM, paywalls or access controls.
+
+The UI must clearly distinguish source processing location:
+- **Local mode:** link resolution, analysis, downloads, source files and renders run on the user's installed desktop agent; media stays on that device.
+- **Hosted mode:** source media is processed on VYRALIS infrastructure and stored privately; clearly disclose this and apply account isolation, retention and deletion controls.
+A normal hosted browser cannot truthfully promise that processing runs on the creator's PC. A desktop companion/agent is required for true local processing. The browser website can be the control panel for that local agent.
+
+NeonClipping is an evaluated upstream reference for the link-first audio-first pipeline and local processing experience. Its public repository is MIT licensed. If code is reused, preserve its copyright and licence notices, pin the exact commit, audit dependencies/security, isolate it behind a VYRALIS adapter, and run regression tests. Prefer reimplementing interoperable capabilities when that produces a cleaner and safer architecture. Do not represent NeonClipping as already integrated.
+
+## Create Clips screen interaction
+The initial create screen must offer two equally clear source methods:
+- Paste a video or stream link.
+- Upload a video from this device.
+
+After source validation, show source details and a clear "Generate clips" action. Advanced settings are optional and collapsed by default. The default workflow should require only a link and a click. Show job progress and generated clips as they become available. Never fabricate clip results or progress.
