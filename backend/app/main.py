@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import json
 import os
+import ipaddress
+import socket
+from urllib.parse import urlsplit
 import shutil
 import sqlite3
 import subprocess
@@ -193,8 +196,98 @@ def enqueue(job_id: str) -> None:
     options=json.loads(row["options"])
     if options.get("kind")=="export":
         POOL.submit(process_export_job,job_id,options["clip_id"])
+    elif options.get("kind")=="url_ingest":
+        POOL.submit(process_ingest_job,job_id,options["source_url"])
     else:
         POOL.submit(process_job,job_id)
+
+
+class URLIngestRequest(BaseModel):
+    url: str = Field(min_length=8, max_length=2048)
+    rights_confirmed: bool
+    clip_count: int = Field(default=8, ge=1, le=20)
+    min_duration: int = Field(default=15, ge=5, le=120)
+    max_duration: int = Field(default=60, ge=10, le=180)
+
+
+ALLOWED_SOURCE_HOSTS = {"youtube.com", "youtu.be", "twitch.tv", "clips.twitch.tv", "kick.com"}
+
+
+def validate_source_url(value: str) -> str:
+    parsed = urlsplit(value.strip())
+    host = (parsed.hostname or "").lower().rstrip(".")
+    if parsed.scheme != "https" or not host or parsed.username or parsed.password or parsed.port not in (None, 443):
+        raise HTTPException(status_code=422, detail="Use a public HTTPS video URL without embedded credentials or a custom port.")
+    allowed = any(host == domain or host.endswith("." + domain) for domain in ALLOWED_SOURCE_HOSTS)
+    if not allowed:
+        raise HTTPException(status_code=422, detail="Supported link sources are YouTube, Twitch and Kick.")
+    try:
+        addresses = socket.getaddrinfo(host, 443, type=socket.SOCK_STREAM)
+        if not addresses or any(not ipaddress.ip_address(item[4][0]).is_global for item in addresses):
+            raise HTTPException(status_code=422, detail="This source host does not resolve to a public internet address.")
+    except socket.gaierror as exc:
+        raise HTTPException(status_code=422, detail="The source host could not be resolved.") from exc
+    return value.strip()
+
+
+def process_ingest_job(job_id: str, source_url: str) -> None:
+    work = ROOT / "work" / job_id
+    work.mkdir(parents=True, exist_ok=True)
+    try:
+        try:
+            import yt_dlp
+        except ImportError as exc:
+            raise RuntimeError("Link ingestion is unavailable: install backend/requirements.txt with yt-dlp.") from exc
+        with connect() as db:
+            job = db.execute("SELECT * FROM jobs WHERE id=?", (job_id,)).fetchone()
+            project = db.execute("SELECT * FROM projects WHERE id=?", (job["project_id"],)).fetchone()
+            asset = db.execute("SELECT * FROM assets WHERE id=?", (project["asset_id"],)).fetchone()
+        update_job(job_id, status="processing", stage="source_download", progress=3, message="Resolving the permitted public video source")
+        output_template = str(work / "source.%(ext)s")
+        options = {
+            "outtmpl": output_template,
+            "format": "bestvideo[height<=1080]+bestaudio/best[height<=1080]/best",
+            "merge_output_format": "mp4",
+            "noplaylist": True,
+            "quiet": True,
+            "no_warnings": True,
+            "ignoreerrors": False,
+            "nocheckcertificate": False,
+            "max_filesize": MAX_UPLOAD,
+            "socket_timeout": 30,
+            "retries": 2,
+            "fragment_retries": 2,
+            "restrictfilenames": True,
+        }
+        with yt_dlp.YoutubeDL(options) as downloader:
+            info = downloader.extract_info(source_url, download=True)
+        if not info:
+            raise RuntimeError("The provider did not return a downloadable video.")
+        candidates = [p for p in work.glob("source.*") if p.is_file() and not p.name.endswith((".part", ".ytdl"))]
+        if not candidates:
+            raise RuntimeError("The provider did not produce a complete video file.")
+        source = max(candidates, key=lambda p: p.stat().st_size)
+        size = source.stat().st_size
+        if size <= 0 or size > MAX_UPLOAD:
+            raise RuntimeError("The downloaded source is empty or exceeds the configured media limit.")
+        update_job(job_id, stage="source_validation", progress=10, message="Validating the downloaded media with FFprobe")
+        metadata = probe(source)
+        suffix = ".mp4" if source.suffix.lower() not in {".mp4", ".mov", ".mkv", ".webm"} else source.suffix.lower()
+        target = MEDIA / f"{asset['id']}{suffix}"
+        shutil.move(str(source), target)
+        title = str(info.get("title") or asset["filename"])[:240]
+        with connect() as db:
+            db.execute("UPDATE assets SET filename=?,size=?,content_type=?,path=?,duration_seconds=?,width=?,height=? WHERE id=?",
+                       (title + suffix, size, "video/" + suffix.lstrip("."), str(target), metadata["duration_seconds"], metadata["width"], metadata["height"], asset["id"]))
+            db.execute("UPDATE projects SET title=?,status='queued',updated_at=? WHERE id=?", (title, now(), project["id"]))
+        update_job(job_id, status="queued", stage="queued", progress=12, message="Source imported. Starting transcription and clip analysis.")
+        process_job(job_id)
+    except Exception as exc:
+        update_job(job_id, status="failed", stage="failed", error=str(exc), message="Source ingestion failed. Check the link, provider access and source permissions.")
+        with connect() as db:
+            db.execute("UPDATE projects SET status='failed',updated_at=? WHERE id=(SELECT project_id FROM jobs WHERE id=?)", (now(), job_id))
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
 
 
 class ProjectRequest(BaseModel):
@@ -253,6 +346,25 @@ async def upload_asset(file: UploadFile = File(...)) -> dict[str,Any]:
     with connect() as db:
         db.execute("INSERT INTO assets(id,filename,size,content_type,path,created_at,duration_seconds,width,height) VALUES(?,?,?,?,?,?,?,?,?)",(asset_id,asset["filename"],size,asset["content_type"],str(target),asset["created_at"],meta["duration_seconds"],meta["width"],meta["height"]))
     return asset
+
+
+@app.post("/api/ingest/url")
+def ingest_url(payload: URLIngestRequest) -> dict[str, Any]:
+    if not payload.rights_confirmed:
+        raise HTTPException(status_code=400, detail="Confirm that you have permission to download and process this video.")
+    source_url = validate_source_url(payload.url)
+    project_id, asset_id, job_id = str(uuid.uuid4()), str(uuid.uuid4()), str(uuid.uuid4())
+    timestamp = now()
+    placeholder_name = "Linked video " + asset_id[:8]
+    options = payload.model_dump() | {"kind": "url_ingest", "source_url": source_url}
+    with connect() as db:
+        db.execute("INSERT INTO assets(id,filename,size,content_type,path,created_at) VALUES(?,?,?,?,?,?)",
+                   (asset_id, placeholder_name, 0, "video/unknown", "", timestamp))
+        db.execute("INSERT INTO projects VALUES(?,?,?,?,?,?)", (project_id, asset_id, placeholder_name, "queued", timestamp, timestamp))
+        db.execute("INSERT INTO jobs VALUES(?,?,?,?,?,?,?,?,?,?)",
+                   (job_id, project_id, "queued", "queued", 0, "Waiting for source ingestion", json.dumps(options), None, timestamp, timestamp))
+    enqueue(job_id)
+    return {"id": project_id, "title": placeholder_name, "status": "queued", "job_id": job_id, "created_at": timestamp}
 
 
 @app.post("/api/projects")
