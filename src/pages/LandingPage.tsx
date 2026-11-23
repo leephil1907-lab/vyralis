@@ -19,7 +19,7 @@ const navLinks = [
 const pipeline = [
   {
     icon: Upload, title: "Import", status: "live" as const,
-    copy: "MP4, MOV, MKV, WebM or AVI streams to local storage and is validated with FFprobe before anything runs.",
+    copy: "Upload MP4, MOV, MKV, WebM or AVI, or paste an eligible YouTube, Twitch or Kick link. FFprobe validates the media before anything runs.",
   },
   {
     icon: AudioLines, title: "Listen", status: "live" as const,
@@ -35,7 +35,7 @@ const pipeline = [
   },
   {
     icon: Film, title: "Render & check", status: "live" as const,
-    copy: "Pick 9:16, 1:1 or 16:9. FFmpeg renders it, then duration, frame size, codecs, black/frozen frames and loudness are verified before download.",
+    copy: "Pick 9:16, 1:1 or 16:9, burn in word-timed captions and a hook line, choose centre, blurred or face-tracked framing. FFmpeg renders it, then duration, frame size, codecs, black/frozen frames and loudness are verified before download.",
   },
 ];
 
@@ -47,8 +47,8 @@ const candidates = [
 
 const capabilities = [
   {
-    icon: ShieldCheck, title: "Local import with real validation",
-    copy: "Media streams to disk, then FFprobe confirms container, duration and streams. Failed files never enter a project.",
+    icon: ShieldCheck, title: "Import from disk or a link",
+    copy: "Uploads stream to disk and links resolve through yt-dlp with a host allowlist, a rights confirmation, duration caps and a public-DNS check. FFprobe then confirms container, duration and streams; failed sources never enter a project.",
   },
   {
     icon: AudioLines, title: "Word-level transcription",
@@ -63,8 +63,8 @@ const capabilities = [
     copy: "Adjust in and out points, rewrite the title, re-render. Nothing is exported behind your back.",
   },
   {
-    icon: Film, title: "Vertical render, ready to post",
-    copy: "A deterministic H.264/AAC 9:16 export with progress you can follow, then a download link that works.",
+    icon: Film, title: "Captioned, reframed render",
+    copy: "Word-timed captions in three styles, an optional hook overlay, and a deterministic H.264/AAC export with progress you can follow — plus SRT, VTT and ASS sidecars.",
   },
   {
     icon: RotateCcw, title: "Jobs that survive interruption",
@@ -74,7 +74,7 @@ const capabilities = [
 
 const surfaces = [
   { icon: Clapperboard, label: "Clip Studio", copy: "Import, transcribe, rank candidates and trim the cut", state: "Live" },
-  { icon: Scissors, label: "Edit Studio", copy: "Frame-accurate timeline, captions, reframe and templates", state: "Planned" },
+  { icon: Scissors, label: "Edit Studio", copy: "Burn-in captions and automatic reframing today; timeline editing and templates next", state: "Limited" },
   { icon: Palette, label: "Creative Studio", copy: "StoryLab planning, brand kits and the workflow canvas", state: "Planned" },
   { icon: Compass, label: "Growth Intelligence", copy: "Profile audits, hooks and ideas once authorized data is connected", state: "Planned" },
   { icon: Radio, label: "Publish Studio", copy: "Validated packaging and approved delivery packages", state: "Limited" },
@@ -83,8 +83,8 @@ const surfaces = [
 
 const roadmap = [
   {
-    icon: Scissors, title: "Professional editor & captions",
-    copy: "Timeline editing, split and merge, auto-reframe presets, caption lab and brand kits. Ships with version history and render QA.",
+    icon: Scissors, title: "Professional editor & caption lab",
+    copy: "Timeline editing, split and merge, caption templates, brand kits and version history. Caption burn-in and auto-reframing already ship; this release adds the editing surface around them.",
     stage: "Release 2",
   },
   {

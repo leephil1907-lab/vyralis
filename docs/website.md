@@ -57,6 +57,7 @@ Fonts: Poppins (display), DM Sans (body), Instrument Serif (italic accents), Spa
 ## Copy rules
 
 - A surface is **Live** only when the local pipeline performs it end to end (see `docs/feature-registry.md`).
+- Edit Studio is **Limited**, not Planned: caption burn-in (three styles, hooks) and automatic reframing (centre, blurred fill, optional face tracking) ship today from Review; the timeline, split/merge and templates do not exist yet.
 - No fabricated reach, RPM, trend ranking or provider connection anywhere on the page.
 - Example scores on the preview panel are labelled heuristics, not virality predictions.
 - Every link resolves to a real route or a document in this repository.
