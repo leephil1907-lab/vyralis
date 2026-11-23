@@ -12,6 +12,7 @@ This is the canonical product inventory. A feature is implemented only when its 
 | Feature | Scope | Current status |
 |---|---|---|
 | Local media import | MP4, MOV, MKV, WebM, AVI; streamed upload; size limits; FFprobe validation | Working foundation; strengthen MIME sniffing and isolation |
+| Video link ingestion | Background import for eligible public YouTube, Twitch and Kick URLs; rights confirmation; source validation; then same analysis pipeline | Implemented foundation; provider availability and permitted access vary; verify on deployment |
 | Project creation | Persistent project/source association and processing options | Working foundation |
 | Processing jobs | Queued/running/completed/failed, progress and restart recovery | Working foundation; add cancellation, idempotency and durable queue |
 | Audio extraction | FFmpeg mono 16 kHz WAV | Working foundation |
@@ -22,7 +23,7 @@ This is the canonical product inventory. A feature is implemented only when its 
 | MP4 export | FFmpeg H.264/AAC vertical render | Working foundation; add output validation and layout presets |
 | Download | Download rendered clip | Working foundation |
 
-P0 acceptance: a rights-cleared video completes upload → processing → review → edit → export → download; job recovery and retry are safe; clip bounds stay within source duration; output decodes and has expected duration, dimensions and audio.
+P0 acceptance: a rights-cleared local upload or eligible provider link completes ingestion → upload/source validation → processing → review → edit → export → download. Provider extraction is subject to platform access, permissions and availability. A rights-cleared video completes upload → processing → review → edit → export → download; job recovery and retry are safe; clip bounds stay within source duration; output decodes and has expected duration, dimensions and audio.
 
 ## P1 — Analysis intelligence
 - Word-level alignment, language detection and transcript correction.
