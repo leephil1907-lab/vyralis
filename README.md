@@ -43,6 +43,8 @@ The implemented local vertical slice currently supports:
 15. Burn word-timed captions into the MP4 in three styles (clean, karaoke sweep, impact), with an optional hook line on its own top layer; download matching SRT, VTT and ASS sidecars.
 16. Reframe to the export preset with a centre crop, a blurred-fill layout, or face-tracked cropping when the optional vision extra is installed.
 17. Show exactly what was burned in — captions, style, hook, layout and whether tracking actually ran — inside the render quality report.
+18. Connect YouTube, TikTok, Instagram and X through each platform's real OAuth 2.0 flow (PKCE where supported), with encrypted token storage, automatic refresh, honest "not configured" states and one-click disconnect.
+19. Read each connected account's live public numbers (subscribers, followers, views, posts) and show them beside studio counts that come straight from the database — no sample analytics anywhere.
 
 Link ingestion uses yt-dlp extractors for eligible public sources; it does not use account cookies, DRM bypass or private/paywalled access. A source may still be unavailable because of provider restrictions, regional/age limits or extractor changes. Users must have permission and comply with the source platform's terms. The candidate score is a transparent transcript heuristic. It is not a trained virality model and does not predict reach. The current API is a single-workspace local foundation, not a secure multi-user hosted service.
 
@@ -57,6 +59,8 @@ Upstream research — which open-source clippers and components are worth using,
 Target API contract: [docs/api-contract.md](docs/api-contract.md). This is a target contract; routes are not implemented merely because they are documented.
 
 Link ingestion behaviour, safeguards and limits: [docs/source-ingestion.md](docs/source-ingestion.md).
+
+Connecting social accounts (exact redirect URIs, scopes and app-review realities): [docs/oauth-setup.md](docs/oauth-setup.md).
 
 Security, privacy and media-rights requirements: [docs/security-and-privacy.md](docs/security-and-privacy.md).
 
@@ -109,6 +113,15 @@ The Vite dev and preview servers proxy `/api` to `http://127.0.0.1:8000`, so the
 For the full test suite (including the HTTP surface tests, which need `httpx`), install `backend/requirements-dev.txt` instead and run `python -m unittest discover -s tests`. Tests that need FFmpeg skip themselves when it is absent.
 
 The first faster-whisper run downloads the configured model. Configure VYRALIS_WHISPER_MODEL, VYRALIS_WHISPER_DEVICE and VYRALIS_WHISPER_COMPUTE for the available hardware.
+
+## Deploying to Render
+
+`render.yaml` defines the API service — Docker build, Debian FFmpeg with libass, yt-dlp from
+requirements, a 20 GB persistent disk at `/var/lib/vyralis` and a health check on `/api/health`.
+Deploy the frontend separately (`npm run build` → `dist/` on Vercel) with `VITE_API_BASE_URL`
+pointing at the API. Before making the API public, set `VYRALIS_AUTH_SECRET` (token encryption)
+and `VYRALIS_BASIC_AUTH` (access gate); the full sequence is in
+[docs/deployment-runbook.md](docs/deployment-runbook.md).
 
 ## Deployment boundary
 
