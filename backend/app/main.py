@@ -23,6 +23,7 @@ from urllib.parse import quote
 from fastapi import Body, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from . import accounts
@@ -1398,3 +1399,68 @@ def studio_metrics() -> dict[str, Any]:
         "accounts": [serialize_account(row) for row in accounts_rows],
         "generated_at": now(),
     }
+
+
+# --------------------------------------------------------------------------- #
+# Deployment: readiness probe and same-origin studio hosting
+# --------------------------------------------------------------------------- #
+
+WEB_DIR = Path(os.getenv("VYRALIS_WEB_DIR", str(Path(__file__).resolve().parents[2] / "dist")))
+
+
+@app.get("/api/ready")
+def readiness() -> JSONResponse:
+    """Deployment readiness: tools present, storage writable, database reachable.
+
+    Render's health check uses /api/health (liveness); this endpoint is for humans and
+    monitors, and returns 503 with the failing checks instead of a bare "ok".
+    """
+    checks: list[dict[str, Any]] = []
+
+    def record(name: str, ok: bool, detail: str) -> None:
+        checks.append({"id": name, "ok": ok, "detail": detail})
+
+    for tool in ("ffmpeg", "ffprobe"):
+        found = shutil.which(tool)
+        record(tool, bool(found), found or f"{tool} is not on PATH; rendering will fail")
+    ytdlp = shutil.which("yt-dlp")
+    record("yt-dlp", bool(ytdlp), ytdlp or "yt-dlp is not installed; link imports will refuse to start")
+    try:
+        probe_file = ROOT / ".ready-probe"
+        probe_file.write_text("ok")
+        probe_file.unlink(missing_ok=True)
+        record("storage", True, str(ROOT))
+    except OSError as exc:
+        record("storage", False, f"{ROOT} is not writable: {exc}")
+    try:
+        with connect() as db:
+            db.execute("SELECT COUNT(*) FROM projects").fetchone()
+        record("database", True, str(DB_PATH))
+    except sqlite3.Error as exc:
+        record("database", False, f"database error: {exc}")
+    record("web-build", WEB_DIR.is_dir(), str(WEB_DIR) if WEB_DIR.is_dir() else "no studio build found; serving API only")
+
+    ok = all(check["ok"] for check in checks if check["id"] in {"storage", "database"})
+    return JSONResponse(
+        status_code=200 if ok else 503,
+        content={"ready": ok, "checks": checks, "generated_at": now()},
+    )
+
+
+if WEB_DIR.is_dir():
+    assets_dir = WEB_DIR / "assets"
+    if assets_dir.is_dir():
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="studio-assets")
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    def serve_studio(full_path: str) -> Response:
+        """Serve the built studio for browser routes; keep /api 404s as JSON."""
+        if full_path.startswith("api/"):
+            raise HTTPException(status_code=404, detail="Endpoint not found.")
+        candidate = (WEB_DIR / full_path).resolve()
+        if full_path and candidate.is_file() and WEB_DIR.resolve() in candidate.parents:
+            return FileResponse(candidate)
+        index = WEB_DIR / "index.html"
+        if index.is_file():
+            return FileResponse(index)
+        raise HTTPException(status_code=404, detail="Studio build not found.")

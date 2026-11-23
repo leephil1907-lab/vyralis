@@ -1,0 +1,17 @@
+.git
+.github
+node_modules
+dist
+.venv
+__pycache__
+*.pyc
+data
+backend/data
+*.log
+.env
+.env.*
+!.env.example
+docs
+tests
+assets
+.arena

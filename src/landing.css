@@ -425,3 +425,7 @@
   .vy-site *{scroll-behavior:auto!important}
   .vy-tile img,.vy-feature,.vy-btn,.vy-link{transition:none!important}
 }
+
+/* Match the studio's readability floor: nothing below 10px. */
+.vy-road-item .vy-chip{font-size:9.5px}
+.vy-announce,.vy-art-card small{font-size:11px}

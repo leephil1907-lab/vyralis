@@ -151,3 +151,108 @@
 .analytics-account .account-metrics{flex:1;grid-template-columns:repeat(auto-fit,minmax(70px,1fr))}
 @media(max-width:850px){.connection-grid{grid-template-columns:1fr}}
 @media(max-width:640px){.connection-summary{gap:10px}.connection-hint{margin-left:0;width:100%}.account-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* ==========================================================================
+   Readability pass
+   The first pass of this studio used 8–10px type for labels and 10px for body
+   copy, which is unreadable on a laptop at 100% zoom. This layer raises the
+   scale without changing the layout: micro labels 10.5px, helper text 11.5px,
+   body/controls 12.5px. Selectors mirror the originals so the cascade stays
+   predictable.
+   ========================================================================== */
+
+/* Micro labels and uppercase pills */
+.eyebrow,.micro-label,.nav-label,.metric-card>span,.feature-state,.engine-pill,.editor-pill,
+.quality-pill,.connection-state,.node-index,.nav-shortcut,.account-metrics span{
+  font-size:10.5px;letter-spacing:1.15px
+}
+.nav-label{letter-spacing:1.5px}
+.eyebrow,.micro-label{letter-spacing:1.4px}
+
+/* Helper text, metadata and dense table copy */
+.metric-card small,.asset-meta small,.account-meta small,.quick-option small,.platform-card small,
+.workflow-card p,.growth-card p,.mini-feature small,.settings-card p,.settings-card small,
+.integration-note p,.quality-note,.render-hint,.empty-panel p,.welcome-copy p,.source-support,
+.status-tag,.quiet-count,.quality-bar,.connection-setup,.account-empty,.package-meta,
+.package-tags span,.packaging-feedback .counter,.story-scene p,.trend-card p,.canvas-node small,
+.brand-preview p,.brand-swatch small,.brand-option small,.connection-note p,.trend-intro p,
+.preset-chip small,.connection-scopes,.float-chip,.destination-tabs .source-tab,
+.button-secondary.small,.quality-item,.packaging-feedback,.analytics-account,.rights-check,
+.toggle-line,.engine-card p{
+  font-size:11.5px;line-height:1.6
+}
+.setup-line code,.connection-warning code{font-size:10.5px}
+.asset-meta small,.account-meta small,.quick-option small,.platform-card small,
+.settings-card small,.workflow-card p,.growth-card p,.mini-feature small,.empty-panel p,
+.welcome-copy p,.connection-note p{line-height:1.7}
+.connection-scopes{letter-spacing:0}
+.quality-bar{grid-template-columns:82px 1fr 46px}
+
+/* Body copy and controls */
+.page-heading p,.notice,.integration-note,.button-primary,.button-secondary,.source-tab,
+.search-box input,.editor-toolbar,.story-form label,.story-form select,.engine-card button,
+.engine-top,.workspace-switch small,.profile small,.text-button,.toast,.breadcrumb,
+.quick-option b,.asset-meta b,.brand-option b,.mini-feature b,.integration-note b,
+.quality-item b,.story-scene b,.packaging-lede,.source-input-wrap input{
+  font-size:12.5px
+}
+.page-heading p{line-height:1.7;max-width:660px}
+.nav-item{font-size:12.5px}
+.button-primary,.button-secondary{height:39px}
+.button-secondary.small{height:30px;padding:0 11px}
+.card-top h3,.quick-card h3,.settings-card h3,.workflow-card h3,.growth-card h3{
+  font-size:14px
+}
+.metric-card strong{font-size:29px}
+.footer{font-size:10px;letter-spacing:.5px}
+.brand small{font-size:10px}
+.source-input-wrap input,.search-box input{font-size:13px}
+
+/* Muted text needs a little more contrast at these sizes */
+.metric-card small,.asset-meta small,.quick-option small,.platform-card small,
+.settings-card small,.workflow-card p,.growth-card p,.mini-feature small,.empty-panel p,
+.connection-setup,.account-meta small,.account-empty,.quality-note,.render-hint,
+.page-heading p,.connection-note p,.trend-card p,.story-scene p{
+  color:#99a4bf
+}
+
+/* ==========================================================================
+   Form controls
+   Review and packaging fields previously fell back to the browser's default
+   white inputs on a dark card. Checkboxes are excluded so the toggle rows keep
+   their compact size.
+   ========================================================================== */
+label{display:block;color:#aab4ce}
+label>input:not([type="checkbox"]):not([type="radio"]),
+label>textarea,
+label>select{
+  width:100%;margin-top:7px;height:39px;padding:0 11px;border-radius:9px;
+  border:1px solid rgba(174,187,230,.18);background:rgba(6,9,19,.55);
+  color:#eef0fa;font-size:12.5px;outline:none;
+  transition:border-color .18s,box-shadow .18s
+}
+label>textarea{height:auto;min-height:92px;padding:10px 11px;line-height:1.6;resize:vertical}
+label>input::placeholder,label>textarea::placeholder{color:#6d7893}
+label>input:focus,label>textarea:focus,label>select:focus{
+  border-color:rgba(160,139,255,.55);box-shadow:0 0 0 3px rgba(140,120,255,.13)
+}
+input[type="checkbox"],input[type="radio"]{width:15px;height:15px;accent-color:#8658e8;cursor:pointer}
+
+/* Headings balance rather than leaving single-word last lines */
+h1,h2,h3{text-wrap:balance}
+p{text-wrap:pretty}
+
+/* Corrective pass: rules above that set type inside media queries or with higher
+   specificity than the readability layer. Kept last so it always wins. */
+.canvas-detail-card p,.trend-tags button{font-size:11.5px;line-height:1.65}
+.asset-row .status-tag{font-size:10.5px}
+.page-heading .eyebrow{font-size:10.5px}
+
+@media(max-width:640px){
+  .metric-card small{font-size:10.5px;line-height:1.5}
+  .asset-meta small,.quick-option small,.workflow-card p,.growth-card p{font-size:11px}
+  .eyebrow,.micro-label{font-size:10px}
+  .button-primary,.button-secondary,.nav-item{height:44px}
+  .source-tab{height:40px}
+  .rights-check,.toggle-line{min-height:36px}
+}
