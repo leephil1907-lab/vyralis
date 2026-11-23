@@ -214,9 +214,13 @@ ALLOWED_SOURCE_HOSTS = {"youtube.com", "youtu.be", "twitch.tv", "clips.twitch.tv
 
 
 def validate_source_url(value: str) -> str:
-    parsed = urlsplit(value.strip())
+    try:
+        parsed = urlsplit(value.strip())
+        port = parsed.port
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail="Enter a valid video URL.") from exc
     host = (parsed.hostname or "").lower().rstrip(".")
-    if parsed.scheme != "https" or not host or parsed.username or parsed.password or parsed.port not in (None, 443):
+    if parsed.scheme != "https" or not host or parsed.username or parsed.password or port not in (None, 443):
         raise HTTPException(status_code=422, detail="Use a public HTTPS video URL without embedded credentials or a custom port.")
     allowed = any(host == domain or host.endswith("." + domain) for domain in ALLOWED_SOURCE_HOSTS)
     if not allowed:
@@ -314,7 +318,7 @@ def startup() -> None:
 
 @app.get("/api/health")
 def health() -> dict[str,Any]:
-    return {"status":"ok","version":"0.2.0","capabilities":["persistent-sqlite","media-upload","ffprobe-validation","ffmpeg-audio-extraction","faster-whisper-transcription","ranked-clip-candidates","mp4-export"]}
+    return {"status":"ok","version":"0.2.0","capabilities":["persistent-sqlite","media-upload","ffprobe-validation","ffmpeg-audio-extraction","faster-whisper-transcription","ranked-clip-candidates","mp4-export","youtube-twitch-kick-url-ingestion"]}
 
 
 @app.get("/api/assets")
