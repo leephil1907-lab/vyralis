@@ -85,11 +85,67 @@ now share the dark control style, with checkboxes excluded so toggle rows stay c
 - `prefers-reduced-motion` disables the marquee and transitions.
 - Reveal animations use `whileInView` with `once`, so content is present for crawlers and assistive technology.
 
+## Information architecture
+
+The public site is a single narrative page (`/`) plus a documentation section and the
+studio. Reference tools in the category (Klap, Vizard, Eklipse, WayinVideo) all run the
+same shape: a tool/page cluster for search, a hero that takes an input, and a prose
+library behind it. VYRALIS now matches the parts that earn their keep without
+publishing invented statistics, fake reviews or comparison claims.
+
+### Landing hero
+
+The hero leads with the work rather than a promise. A live input takes a YouTube, Twitch
+or Kick URL, validates it, and hands it to `/create?url=…&focus=url`, where the field is
+prefilled and the rights confirmation still has to be ticked. Invalid input returns an
+inline message instead of navigating. "Open the studio" remains for people who want to
+upload a file first.
+
+### Documentation section
+
+`/docs` is an index of the eleven documents in `docs/`, grouped into *Start here*,
+*Engineering*, *Running it* and *Reference*. `/docs/<slug>` renders the markdown with:
+
+- a sticky grouped sidebar with a filter box;
+- an on-page outline built from the document's `##`/`###` headings, skipping fenced code;
+- GFM tables and code blocks styled for the dark surface;
+- relative `.md` cross-links rewritten to in-app routes, external links opened in a new tab;
+- previous/next paging in manifest order and a real not-found state for unknown slugs.
+
+Documents are loaded through `import.meta.glob` with a lazy loader, so the markdown
+renderer and each document live in their own chunk; the main bundle is unaffected apart
+from the manifest.
+
+### Command palette
+
+`⌘K` / `Ctrl+K` opens a real palette (the hint on *Create clips* previously had no
+handler behind it). It searches pages, documents and actions — import from a link,
+upload a file, check engine status, open the public site — with arrow keys, `Enter` to
+run and `Escape` to close. The top bar exposes the same entry point for pointer users.
+
+### Navigation contract
+
+- Public site nav: Workflow, Capabilities, Studio, **Docs** (internal route, not a raw
+  `.md` link on GitHub), then Open studio.
+- Studio sidebar groups: Workspace, Clip studio, Edit studio, Creative studio, Growth
+  intelligence, Publish studio, **Resources → Documentation**.
+- Footer: Product anchors, Workspace routes, Documentation (index plus three documents),
+  GitHub, version.
+
+## Testing
+
+`npm test` runs Vitest with jsdom (`src/test/setup.ts` supplies the browser features
+jsdom lacks). The suite covers the documentation manifest against the real files, the
+markdown outline extraction, the landing entry point and its validation, the docs index,
+a real document rendering, the unknown-slug state, and the studio shell including the
+palette shortcut, filtering, navigation and Escape handling, plus the `?url=` handoff.
+
 ## Development
 
 ```bash
 npm install
 npm run dev     # site at /, studio at /studio
+npm test        # frontend regression suite
 npm run build   # typecheck + production build
 ```
 

@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowRight, ArrowUpRight, AudioLines, ChartNoAxesCombined,
-  Clapperboard, Film, Layers3, ListChecks, Menu, Network, Palette, Play,
+  Clapperboard, Film, Layers3, Link2, ListChecks, Menu, Network, Palette, Play,
   Compass, Radio, RotateCcw, Scissors, ShieldCheck, Sparkles, Upload, X,
 } from "lucide-react";
 import "../landing.css";
@@ -14,6 +14,15 @@ const navLinks = [
   { label: "Capabilities", href: "#capabilities" },
   { label: "Studio", href: "#studio" },
   { label: "Roadmap", href: "#roadmap" },
+];
+
+// Documents live in the app now, at /docs/<slug>, so the marketing site can link
+// straight into them instead of opening raw markdown on GitHub.
+const docLinks = [
+  { label: "Feature registry", slug: "feature-registry" },
+  { label: "Architecture", slug: "architecture" },
+  { label: "Security & privacy", slug: "security-and-privacy" },
+  { label: "Deployment runbook", slug: "deployment-runbook" },
 ];
 
 const pipeline = [
@@ -111,8 +120,6 @@ const principles = [
   { n: "04", title: "Authorized integrations only", copy: "Official APIs, explicit scopes and access you can revoke." },
 ];
 
-const docsBase = "https://github.com/leephil1907-lab/vyralis/blob/main/docs";
-
 function Reveal({ children, delay = 0, className = "" }: { children: ReactNode; delay?: number; className?: string }) {
   return (
     <motion.div
@@ -141,6 +148,25 @@ function Brand({ onClick }: { onClick?: () => void }) {
 
 export default function LandingPage() {
   const [menu, setMenu] = useState(false);
+  const [link, setLink] = useState("");
+  const [linkError, setLinkError] = useState("");
+  const navigate = useNavigate();
+
+  // A landing-page submission is a real handoff, not a demo: the studio opens
+  // with the URL filled in and the rights confirmation still required.
+  function startFromLink(event: React.FormEvent) {
+    event.preventDefault();
+    const value = link.trim();
+    if (!value) { setLinkError("Paste a link first, or upload a file in the studio."); return; }
+    try {
+      const parsed = new URL(value);
+      if (!/^https?:$/.test(parsed.protocol)) throw new Error("bad protocol");
+    } catch {
+      setLinkError("That doesn’t look like a full URL — include https://");
+      return;
+    }
+    navigate(`/create?url=${encodeURIComponent(value)}&focus=url`);
+  }
 
   useEffect(() => {
     const root = document.documentElement;
@@ -177,7 +203,7 @@ export default function LandingPage() {
             <Brand />
             <ul className="vy-nav-links">
               {navLinks.map((l) => <li key={l.href}><a href={l.href}>{l.label}</a></li>)}
-              <li><a href={docsBase + "/feature-registry.md"} target="_blank" rel="noreferrer">Docs</a></li>
+              <li><Link to="/docs">Docs</Link></li>
             </ul>
             <div className="vy-nav-right">
               <span className="vy-nav-status"><i />Local-first</span>
@@ -207,7 +233,7 @@ export default function LandingPage() {
               {navLinks.map((l) => (
                 <a className="vy-mobile-link" key={l.href} href={l.href} onClick={() => setMenu(false)}>{l.label}</a>
               ))}
-              <a className="vy-mobile-link" href={docsBase + "/feature-registry.md"} target="_blank" rel="noreferrer">Docs</a>
+              <Link className="vy-mobile-link" to="/docs" onClick={() => setMenu(false)}>Docs</Link>
               <Link className="vy-btn vy-btn-primary" to="/studio" onClick={() => setMenu(false)}>
                 Open the studio <ArrowRight size={15} />
               </Link>
@@ -236,6 +262,20 @@ export default function LandingPage() {
                 VYRALIS Studio turns long recordings into ranked, reviewable, social-ready clips —
                 transcribed, explained and rendered on your own machine.
               </p>
+              <form className="vy-quickstart" onSubmit={startFromLink}>
+                <Link2 size={15} />
+                <input
+                  value={link}
+                  onChange={(e) => { setLink(e.target.value); setLinkError(""); }}
+                  placeholder="Paste a YouTube, Twitch or Kick link"
+                  aria-label="Paste a video link"
+                  inputMode="url"
+                />
+                <button className="vy-btn vy-btn-primary vy-btn-sm" type="submit">
+                  Start clipping <ArrowRight size={13} />
+                </button>
+              </form>
+              {linkError && <p className="vy-quickstart-error">{linkError}</p>}
               <div className="vy-hero-actions">
                 <Link className="vy-btn vy-btn-primary" to="/studio">
                   Open the studio <ArrowRight size={15} />
@@ -465,9 +505,9 @@ export default function LandingPage() {
                     integrations and end-to-end tests exist.
                   </p>
                   <div className="vy-roadmap-foot">
-                    <a className="vy-btn vy-btn-coral vy-btn-sm" href={docsBase + "/feature-registry.md"} target="_blank" rel="noreferrer">
-                      Read the feature registry <ArrowUpRight size={14} />
-                    </a>
+                    <Link className="vy-btn vy-btn-coral vy-btn-sm" to="/docs/feature-registry">
+                      Read the feature registry <ArrowRight size={14} />
+                    </Link>
                     <small>Status vocabulary: working foundation · in progress · planned · blocked by provider.</small>
                   </div>
                 </div>
@@ -529,9 +569,9 @@ export default function LandingPage() {
                   <Link className="vy-btn vy-btn-primary" to="/studio">
                     Open the studio <ArrowRight size={15} />
                   </Link>
-                  <a className="vy-btn vy-btn-ghost" href={docsBase + "/deployment-runbook.md"} target="_blank" rel="noreferrer">
-                    Run it locally <ArrowUpRight size={14} />
-                  </a>
+                  <Link className="vy-btn vy-btn-ghost" to="/docs/deployment-runbook">
+                    Run it locally <ArrowRight size={14} />
+                  </Link>
                 </div>
                 <span className="vy-cta-note">Local processing · FFmpeg + faster-whisper · your files stay on your disk</span>
               </div>
@@ -564,10 +604,10 @@ export default function LandingPage() {
             </div>
             <div className="vy-footer-col">
               <b>Documentation</b>
-              <a href={docsBase + "/feature-registry.md"} target="_blank" rel="noreferrer">Feature registry</a>
-              <a href={docsBase + "/architecture.md"} target="_blank" rel="noreferrer">Architecture</a>
-              <a href={docsBase + "/security-and-privacy.md"} target="_blank" rel="noreferrer">Security &amp; privacy</a>
-              <a href={docsBase + "/roadmap.md"} target="_blank" rel="noreferrer">Release roadmap</a>
+              <Link to="/docs">All documentation</Link>
+              {docLinks.slice(0, 3).map((doc) => (
+                <Link key={doc.slug} to={`/docs/${doc.slug}`}>{doc.label}</Link>
+              ))}
             </div>
           </div>
           <div className="vy-footer-bottom">

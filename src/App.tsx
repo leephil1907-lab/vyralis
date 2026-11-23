@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Link, NavLink, Route, Routes, useLocation, useNavigate } from "react-router-dom";
@@ -8,7 +8,8 @@ import {
   FolderOpen, HardDrive, Layers3, Link2, ListVideo, Menu,
   MoreHorizontal, Plus, Search, Settings2, ShieldCheck, Sparkles, Subtitles, Network,
   WandSparkles, X, Youtube, Radio, Zap, Palette,
-  Scissors, Upload, Video, Captions, ChartNoAxesCombined, AudioLines, Plug
+  Scissors, Upload, Video, Captions, ChartNoAxesCombined, AudioLines, Plug,
+  BookOpen
 } from "lucide-react";
 import { api, type Health, type MediaAsset } from "./lib/api";
 import ReviewPage from "./pages/ReviewPage";
@@ -17,6 +18,13 @@ import PublishPage from "./pages/PublishPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
 import ConnectionsPage from "./pages/ConnectionsPage";
 import ErrorBoundary from "./components/ErrorBoundary";
+import CommandPalette, { type Command } from "./components/CommandPalette";
+import { DOCS } from "./lib/docs";
+
+// Documents are pulled in on demand so the markdown renderer never lands in the
+// main bundle, and each document is its own small chunk.
+const DocsPage = lazy(() => import("./pages/DocsPage"));
+const DocsIndex = lazy(() => import("./pages/DocsPage").then((m) => ({ default: m.DocsIndex })));
 
 const navGroups = [
   { label: "WORKSPACE", items: [
@@ -45,11 +53,15 @@ const navGroups = [
     { to: "/calendar", label: "Content calendar", icon: CalendarDays },
     { to: "/connections", label: "Connections", icon: Plug },
   ]},
+  { label: "RESOURCES", items: [
+    { to: "/docs", label: "Documentation", icon: BookOpen },
+  ]},
 ];
 const titles: Record<string,string> = {
   "/":"Dashboard","/studio":"Dashboard","/projects":"Projects","/create":"Create clips","/editor":"Video editor",
   "/publishing":"Publishing","/connections":"Connections","/calendar":"Content calendar","/analytics":"Analytics",
-  "/growth":"Growth intelligence","/trends":"Trend & niche radar","/storylab":"StoryLab","/canvas":"Workflow canvas","/brand":"Brand kit","/settings":"Settings"
+  "/growth":"Growth intelligence","/trends":"Trend & niche radar","/storylab":"StoryLab","/canvas":"Workflow canvas","/brand":"Brand kit","/settings":"Settings",
+  "/docs":"Documentation"
 };
 const bytes = (n:number) => n > 1024**3 ? (n/1024**3).toFixed(1)+" GB" : n > 1024**2 ? (n/1024**2).toFixed(1)+" MB" : (n/1024).toFixed(0)+" KB";
 const pageMotion = { initial:{opacity:0,y:12,filter:"blur(5px)"}, animate:{opacity:1,y:0,filter:"blur(0px)"}, exit:{opacity:0,y:-8,filter:"blur(4px)"} };
@@ -66,12 +78,23 @@ function App() {
   const [sourceUrl,setSourceUrl] = useState("");
   const [rightsAttested,setRightsAttested]=useState(false);
   const [mobileNav,setMobileNav] = useState(false);
+  const [palette,setPalette] = useState(false);
+  const searchParams = useMemo(()=>new URLSearchParams(location.search),[location.search]);
 
   async function refresh() {
     try { const [h,a] = await Promise.all([api.health(),api.assets()]); setHealth(h); setAssets(a); }
     catch { setHealth(null); }
   }
   useEffect(()=>{ void refresh(); },[]);
+  useEffect(()=>{ const url=searchParams.get("url"); if(url) setSourceUrl(url); },[searchParams]);
+  useEffect(()=>{ if(searchParams.get("focus")!=="url") return; const id=window.setTimeout(()=>document.getElementById("source-url-input")?.focus(),160); return ()=>window.clearTimeout(id); },[searchParams,location.pathname]);
+  useEffect(()=>{
+    const onKey=(event:KeyboardEvent)=>{
+      if((event.metaKey||event.ctrlKey)&&event.key.toLowerCase()==="k"){ event.preventDefault(); setPalette(v=>!v); }
+    };
+    window.addEventListener("keydown",onKey);
+    return ()=>window.removeEventListener("keydown",onKey);
+  },[]);
   async function upload(files:FileList|null) {
     if(!files?.length) return;
     setBusy(true); setNotice("Importing media to this workspace…");
@@ -80,7 +103,7 @@ function App() {
     finally { setBusy(false); if(input.current) input.current.value=""; }
   }
   const filtered = useMemo(()=>assets.filter(a=>a.filename.toLowerCase().includes(query.toLowerCase())),[assets,query]);
-  const title = titles[location.pathname] || "Dashboard";
+  const title = titles[location.pathname] || (location.pathname.startsWith("/docs") ? "Documentation" : "Dashboard");
   const totalBytes = assets.reduce((n,a)=>n+a.size,0);
 
   async function beginLinkFlow() {
@@ -102,6 +125,27 @@ function App() {
       setNotice(`Link import failed: ${message}`);
     } finally { setBusy(false); }
   }
+
+  const commands: Command[] = [
+    ...navGroups.flatMap(group=>group.items.map(item=>({
+      id:"page:"+item.to, label:item.label, hint:group.label, group:"Go to", icon:item.icon,
+      keywords:"open navigate page workspace studio "+item.to.replace("/",""),
+      run:()=>navigate(item.to),
+    }))),
+    { id:"action:import", label:"Import from a link", hint:"YouTube · Twitch · Kick", group:"Actions", icon:Link2,
+      keywords:"paste url clip youtube twitch kick import create",
+      run:()=>navigate("/create?focus=url") },
+    { id:"action:upload", label:"Upload a video from this device", hint:"MP4 · MOV · WebM", group:"Actions", icon:Upload,
+      keywords:"file local device import upload", run:()=>input.current?.click() },
+    { id:"action:engine", label:"Check engine status", hint:health?"Connected":"Offline", group:"Actions", icon:Activity,
+      keywords:"health backend api refresh status ffmpeg whisper", run:()=>void refresh() },
+    { id:"action:site", label:"Open the public website", hint:"Landing page", group:"Actions", icon:Compass,
+      keywords:"home marketing landing public site", run:()=>navigate("/") },
+    ...DOCS.map(doc=>({
+      id:"doc:"+doc.slug, label:doc.title, hint:"Documentation", group:"Read", icon:BookOpen,
+      keywords:"docs documentation guide "+doc.group, run:()=>navigate("/docs/"+doc.slug),
+    })),
+  ];
 
   const page = (node:ReactNode) => <motion.div className="page-content" key={location.pathname} {...pageMotion} transition={{duration:.24,ease:[.22,1,.36,1]}}>{node}</motion.div>;
   const PageHeader = ({eyebrow,heading,description,action}:{eyebrow:string;heading:ReactNode;description:string;action?:ReactNode}) => <div className="page-heading"><div><div className="eyebrow"><Sparkles size={13}/>{eyebrow}</div><h1>{heading}</h1><p>{description}</p></div>{action&&<div className="heading-action">{action}</div>}</div>;
@@ -128,7 +172,7 @@ function App() {
 
   function Create(){
     return page(<><PageHeader eyebrow="CLIP STUDIO" heading={<>Find the moments that <em>move people.</em></>} description="Import a YouTube, Twitch or Kick link, or upload a file. Transcription, ranked highlights and MP4 exports run on the local engine."/>
-      <Glass className="create-panel"><div className="source-tabs"><span className="source-tab active"><Link2 size={15}/> Paste video link</span><button className="source-tab" onClick={()=>input.current?.click()}><Upload size={15}/> Upload video</button></div><div className="source-input-wrap"><Link2 size={18}/><input value={sourceUrl} onChange={e=>setSourceUrl(e.target.value)} onKeyDown={e=>e.key==="Enter"&&beginLinkFlow()} placeholder="Paste a YouTube, Twitch or Kick video URL"/><button className="button-primary" disabled={busy} onClick={()=>void beginLinkFlow()}>{busy?"Importing…":"Import & analyse"} <ArrowUpRight size={15}/></button></div><div className="source-support"><span><Youtube size={14}/> YouTube</span><span><Radio size={14}/> Twitch</span><span><Zap size={14}/> Kick</span><span className="source-note">Video link or local upload</span></div><label className="rights-check"><input type="checkbox" checked={rightsAttested} onChange={e=>setRightsAttested(e.target.checked)}/><span>I own this footage or have permission to clip and publish it.</span></label><input ref={input} type="file" accept="video/*" hidden onChange={e=>void upload(e.target.files)}/>{notice&&<div className="notice"><ShieldCheck size={15}/>{notice}</div>}</Glass>
+      <Glass className="create-panel"><div className="source-tabs"><span className="source-tab active"><Link2 size={15}/> Paste video link</span><button className="source-tab" onClick={()=>input.current?.click()}><Upload size={15}/> Upload video</button></div><div className="source-input-wrap"><Link2 size={18}/><input id="source-url-input" value={sourceUrl} onChange={e=>setSourceUrl(e.target.value)} onKeyDown={e=>e.key==="Enter"&&beginLinkFlow()} placeholder="Paste a YouTube, Twitch or Kick video URL"/><button className="button-primary" disabled={busy} onClick={()=>void beginLinkFlow()}>{busy?"Importing…":"Import & analyse"} <ArrowUpRight size={15}/></button></div><div className="source-support"><span><Youtube size={14}/> YouTube</span><span><Radio size={14}/> Twitch</span><span><Zap size={14}/> Kick</span><span className="source-note">Video link or local upload</span></div><label className="rights-check"><input type="checkbox" checked={rightsAttested} onChange={e=>setRightsAttested(e.target.checked)}/><span>I own this footage or have permission to clip and publish it.</span></label><input ref={input} type="file" accept="video/*" hidden onChange={e=>void upload(e.target.files)}/>{notice&&<div className="notice"><ShieldCheck size={15}/>{notice}</div>}</Glass>
       <div className="section-title"><div><span className="micro-label">YOUR CLIPPING WORKFLOW</span><h2>From source to shareable</h2></div></div><div className="workflow-grid">{[{n:"01",icon:Compass,title:"Discover highlights",desc:"Audio energy, transcript context, scene changes and standout moments."},{n:"02",icon:Scissors,title:"Shape every clip",desc:"Trim, split, reframe and refine your strongest moments."},{n:"03",icon:Captions,title:"Style your story",desc:"Word-timed captions, hooks, titles and reusable brand presets."},{n:"04",icon:Radio,title:"Publish & learn",desc:"Prepare platform versions, schedule posts and review performance."}].map(item=><Glass className="workflow-card" key={item.n}><span className="workflow-number">{item.n}</span><item.icon size={20}/><h3>{item.title}</h3><p>{item.desc}</p></Glass>)}</div>
       <div className="integration-note"><Sparkles size={16}/><div><b>What runs on your machine</b><p>Eligible public links are resolved with yt-dlp, media is validated with FFprobe, audio is extracted with FFmpeg, speech is transcribed with faster-whisper, and transcript windows are ranked for review. Provider restrictions, age or region locks and unavailable downloads can still block an import, and the job tells you why. If a tool is missing, the job fails with the exact command it needs instead of pretending to work.</p></div></div>
     </>);
@@ -161,10 +205,11 @@ function App() {
       <div className="sidebar-bottom"><div className="engine-card"><div className="engine-top"><span className={"status-dot "+(health?"online":"")}/><b>{health?"Local engine connected":"Local engine offline"}</b></div><p>{health?"Media API is responding.":"Start the local backend to import and list media."}</p><button onClick={()=>void refresh()}>Check connection <ArrowUpRight size={13}/></button></div><div className="profile"><div className="profile-avatar">V</div><div><b>VYRALIS Creator</b><small>Personal workspace</small></div><MoreHorizontal size={17}/></div></div>
     </aside>
     {mobileNav&&<button className="mobile-scrim" aria-label="Close navigation" onClick={()=>setMobileNav(false)}/>}
-    <main className="main"><header className="topbar"><div className="topbar-left"><button className="mobile-menu" onClick={()=>setMobileNav(v=>!v)} aria-label="Toggle menu"><Menu size={19}/></button><div className="breadcrumb">Workspace <span>/</span> {title}</div></div><div className="top-actions"><div className="engine-pill"><span className={"status-dot "+(health?"online":"")}/>{health?"ENGINE ONLINE":"ENGINE OFFLINE"}</div><button className="top-icon" aria-label="Help"><CircleHelp size={17}/></button><button className="top-icon" aria-label="Notifications"><Bell size={17}/></button><div className="avatar-mini">V</div></div></header>
-      <div className="content"><AnimatePresence mode="wait"><ErrorBoundary key={location.pathname}><Routes location={location} key={location.pathname}><Route path="/studio" element={<Dashboard/>}/><Route path="/" element={<LandingPage/>}/><Route path="/projects" element={<Projects/>}/><Route path="/create" element={<Create/>}/><Route path="/editor" element={<Editor/>}/><Route path="/review/:projectId" element={<ReviewPage/>}/><Route path="/publishing" element={<PublishPage/>}/><Route path="/calendar" element={<Calendar/>}/><Route path="/analytics" element={<AnalyticsPage/>}/><Route path="/connections" element={<ConnectionsPage/>}/><Route path="/growth" element={<Growth/>}/><Route path="/trends" element={<Trends/>}/><Route path="/storylab" element={<StoryLab/>}/><Route path="/canvas" element={<Canvas/>}/><Route path="/brand" element={<Brand/>}/><Route path="/settings" element={<Settings/>}/><Route path="*" element={<Dashboard/>}/></Routes></ErrorBoundary></AnimatePresence><footer className="footer"><span>VYRALIS STUDIO <i>· Every moment has a story.</i></span><span className="footer-status"><span className={"status-dot "+(health?"online":"")}/>{health?"Local engine responding":"Local engine not connected"}</span><span>STUDIO / 0.3</span></footer></div>
+    <main className="main"><header className="topbar"><div className="topbar-left"><button className="mobile-menu" onClick={()=>setMobileNav(v=>!v)} aria-label="Toggle menu"><Menu size={19}/></button><div className="breadcrumb">Workspace <span>/</span> {title}</div></div><div className="top-actions"><button className="palette-trigger" onClick={()=>setPalette(true)} aria-label="Open command palette"><Search size={14}/><span>Search or jump to</span><kbd>⌘K</kbd></button><div className="engine-pill"><span className={"status-dot "+(health?"online":"")}/>{health?"ENGINE ONLINE":"ENGINE OFFLINE"}</div><button className="top-icon" aria-label="Help"><CircleHelp size={17}/></button><button className="top-icon" aria-label="Notifications"><Bell size={17}/></button><div className="avatar-mini">V</div></div></header>
+      <div className="content"><AnimatePresence mode="wait"><ErrorBoundary key={location.pathname}><Routes location={location} key={location.pathname}><Route path="/studio" element={<Dashboard/>}/><Route path="/" element={<LandingPage/>}/><Route path="/projects" element={<Projects/>}/><Route path="/create" element={<Create/>}/><Route path="/editor" element={<Editor/>}/><Route path="/review/:projectId" element={<ReviewPage/>}/><Route path="/publishing" element={<PublishPage/>}/><Route path="/calendar" element={<Calendar/>}/><Route path="/analytics" element={<AnalyticsPage/>}/><Route path="/connections" element={<ConnectionsPage/>}/><Route path="/growth" element={<Growth/>}/><Route path="/trends" element={<Trends/>}/><Route path="/storylab" element={<StoryLab/>}/><Route path="/canvas" element={<Canvas/>}/><Route path="/brand" element={<Brand/>}/><Route path="/settings" element={<Settings/>}/><Route path="/docs" element={<Suspense fallback={<div className="page-content"><div className="empty-panel"><p>Loading documentation…</p></div></div>}><DocsIndex/></Suspense>}/><Route path="/docs/:slug" element={<Suspense fallback={<div className="page-content"><div className="empty-panel"><p>Loading document…</p></div></div>}><DocsPage/></Suspense>}/><Route path="*" element={<Dashboard/>}/></Routes></ErrorBoundary></AnimatePresence><footer className="footer"><span>VYRALIS STUDIO <i>· Every moment has a story.</i></span><span className="footer-status"><span className={"status-dot "+(health?"online":"")}/>{health?"Local engine responding":"Local engine not connected"}</span><span>STUDIO / 0.3</span></footer></div>
     </main>
     {notice&&!location.pathname.includes("create")&&!location.pathname.includes("publishing")&&<div className="toast" onClick={()=>setNotice("")}>{notice}<X size={14}/></div>}
+    <CommandPalette open={palette} onClose={()=>setPalette(false)} commands={commands}/>
   </div>;
 }
 export default App;
