@@ -82,3 +82,42 @@ The project structure, development setup, coding standards and contribution work
 ## Licence
 
 A project licence will be selected after reviewing the intended dependencies, model licences and distribution strategy.
+## Working upload-to-clip workflow (current implementation)
+
+The repository now includes a first real processing vertical slice:
+
+1. Upload a local video file. The API streams it to disk, checks the extension and validates its media streams with FFprobe.
+2. Create a project and durable SQLite job record.
+3. A background worker extracts mono 16 kHz audio with FFmpeg.
+4. faster-whisper transcribes the audio with segment and word timestamps.
+5. Transcript windows are ranked with an explainable heuristic breakdown (hook, emotion, clarity, story and pacing).
+6. The review page displays processing progress, ranked candidates, transcript text and editable start/end/title values.
+7. Export renders an actual 1080×1920 H.264/AAC MP4 with FFmpeg.
+
+The score is a transparent transcript heuristic, not a trained virality model. Speaker diarization, face tracking, word-by-word caption rendering, music controls, URL source adapters and social publishing are not included in this first vertical slice.
+
+### Local setup
+
+Requirements: Python 3.11, Node.js 20+, and FFmpeg/FFprobe available on PATH.
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r backend/requirements.txt
+uvicorn backend.app.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+In a second terminal:
+
+```bash
+npm install
+VITE_API_BASE_URL=http://127.0.0.1:8000 npm run dev
+```
+
+Open the Vite URL, choose **Create clips**, and upload an MP4, MOV, MKV, WebM or AVI file. The first faster-whisper run downloads the configured model; set `VYRALIS_WHISPER_MODEL` (default `base`), `VYRALIS_WHISPER_DEVICE` (default `cpu`) and `VYRALIS_WHISPER_COMPUTE` (default `int8`) to tune the worker.
+
+### Container and persistence
+
+The root Dockerfile installs FFmpeg and the Python API. Set `VYRALIS_DATA_DIR` to a persistent mounted volume. The SQLite database, original media and exports are stored under that directory. Configure `VYRALIS_CORS_ORIGINS` with the exact frontend origin and `VYRALIS_MAX_UPLOAD_BYTES` to your upload policy. A persistent disk is required for restart recovery; ephemeral container storage is not durable.
+
+This initial API is a single-workspace processing foundation. It does not yet provide user authentication, per-account authorization or private multi-tenant media access. Keep it on localhost or behind an authenticated private gateway until those controls are implemented; do not expose this API publicly as a multi-user service.
