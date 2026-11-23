@@ -18,6 +18,8 @@ export default function ReviewPage() {
   const [selected,setSelected]=useState("");
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState("");
+  const [renderJobId,setRenderJobId]=useState("");
+  const [renderMessage,setRenderMessage]=useState("");
   const refresh=useCallback(async()=>{
     if(!jobId)return;
     try {
@@ -34,7 +36,7 @@ export default function ReviewPage() {
     const timer=window.setInterval(()=>void refresh(),2000);
     return ()=>window.clearInterval(timer);
   },[job,refresh]);
-  const active=clips.find(c=>c.id===selected)||clips[0];
+  useEffect(()=>{\n    if(!renderJobId)return;\n    let stopped=false;\n    const check=async()=>{try{const current=await api.job(renderJobId);if(stopped)return;setRenderMessage(current.message);if(current.status==="completed"){stopped=true;window.location.href=api.fileUrl(`/api/clips/${clips.find(c=>c.id===selected)?.id}/download`);setRenderJobId("");}else if(current.status==="failed"){stopped=true;setError(current.error||current.message);setRenderJobId("");}}catch(e){if(!stopped)setError(e instanceof Error?e.message:"Render status unavailable.");}};\n    void check();const timer=window.setInterval(()=>void check(),1500);return()=>{stopped=true;window.clearInterval(timer);};\n  },[renderJobId,clips,selected]);\n  const active=clips.find(c=>c.id===selected)||clips[0];
   async function save(){
     if(!active)return; setBusy(true);setError("");
     try{await api.editClip(active);setClips(await api.clips(projectId));}
@@ -43,7 +45,7 @@ export default function ReviewPage() {
   }
   async function exportClip(){
     if(!active)return;setBusy(true);setError("");
-    try{const result=await api.exportClip(active.id);window.location.href=api.fileUrl(result.download_url);setClips(await api.clips(projectId));}
+    try{const result=await api.exportClip(active.id);setRenderJobId(result.job_id);setRenderMessage("Render queued…");}
     catch(e){setError(e instanceof Error?e.message:"Export failed.");}
     finally{setBusy(false);}
   }
@@ -65,7 +67,7 @@ export default function ReviewPage() {
       <section className="glass" style={{padding:18}}>
         <div className="card-top"><div><span className="micro-label">SOURCE PREVIEW</span><h3>{active.title}</h3></div><span className="status-tag">#{active.rank} · {active.score}/100</span></div>
         <video controls preload="metadata" src={api.fileUrl(`/api/projects/${projectId}/source#t=${active.start_seconds},${active.end_seconds}`)} style={{width:"100%",maxHeight:560,background:"#05060b",borderRadius:14,marginTop:12}}/>
-        <div style={{display:"flex",gap:10,flexWrap:"wrap",marginTop:16}}><button className="button-primary" onClick={()=>void exportClip()} disabled={busy}><Download size={15}/> Render & download MP4</button><button className="button-secondary" onClick={()=>void save()} disabled={busy}><Scissors size={15}/> Save edits</button></div>
+        <div style={{display:"flex",gap:10,flexWrap:"wrap",marginTop:16}}><button className="button-primary" onClick={()=>void exportClip()} disabled={busy}><Download size={15}/> Render & download MP4</button><button className="button-secondary" onClick={()=>void save()} disabled={busy}><Scissors size={15}/> Save edits</button></div>{renderJobId&&<p className="notice">{renderMessage}</p>}
       </section>
       <section className="glass" style={{padding:18}}>
         <span className="micro-label">RANKED CLIPS</span><div style={{display:"grid",gap:8,margin:"12px 0 20px",maxHeight:240,overflowY:"auto"}}>{clips.map(c=><button key={c.id} onClick={()=>setSelected(c.id)} className="quick-option" style={{border:selected===c.id?"1px solid #a855f7":undefined,textAlign:"left"}}><span className="quick-icon"><Video size={16}/></span><span><b>{c.title}</b><small>{clock(c.start_seconds)}–{clock(c.end_seconds)} · Score {c.score}</small></span></button>)}</div>
