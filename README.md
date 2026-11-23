@@ -16,8 +16,8 @@ The primary product is the working video clipping and production workflow. Story
 The repository contains a React 18 + TypeScript + Vite studio UI and a FastAPI local processing API.
 
 The implemented local vertical slice currently supports:
-1. Upload local MP4, MOV, MKV, WebM or AVI media.
-2. Stream the upload to local storage and validate the media using FFprobe.
+1. Upload local MP4, MOV, MKV, WebM or AVI media, or paste an eligible public YouTube, Twitch or Kick video link.
+2. Stream local uploads to storage, or ingest a supported provider URL in a background job; validate the resulting media using FFprobe.
 3. Create a project and persist a processing job in SQLite.
 4. Extract mono 16 kHz audio with FFmpeg.
 5. Transcribe speech with faster-whisper, including segment and word timestamps.
@@ -27,7 +27,7 @@ The implemented local vertical slice currently supports:
 9. Render a vertical H.264/AAC MP4 with FFmpeg and download it.
 10. Recover queued/processing jobs after worker restart using the local SQLite job records.
 
-The candidate score is a transparent transcript heuristic. It is not a trained virality model and does not predict reach. The current API is a single-workspace local foundation, not a secure multi-user hosted service.
+Link ingestion uses yt-dlp extractors for eligible public sources; it does not use account cookies, DRM bypass or private/paywalled access. A source may still be unavailable because of provider restrictions, regional/age limits or extractor changes. Users must have permission and comply with the source platform's terms. The candidate score is a transparent transcript heuristic. It is not a trained virality model and does not predict reach. The current API is a single-workspace local foundation, not a secure multi-user hosted service.
 
 ## Full product scope
 
