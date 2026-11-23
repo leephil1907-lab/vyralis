@@ -1,75 +1,92 @@
-# VYRALIS implementation roadmap
+# VYRALIS Studio — Implementation Roadmap
 
-## Release 0 — Foundation hardening
-- [x] Product identity, React + TypeScript + Vite shell, FastAPI health API and initial local media upload/listing.
-- [x] Product specification and architecture direction.
-- [ ] SQLite local / PostgreSQL hosted persistence and migrations.
-- [ ] FFprobe validation, upload limits, MIME sniffing and safe path isolation.
-- [ ] Durable job model, worker lifecycle, progress, cancellation and retry.
-- [ ] API validation, tests and CI test coverage.
+The canonical scope is in docs/feature-registry.md. A feature is complete only after the implementation, persistence, security controls and acceptance tests pass. Product screens and documentation alone do not count.
 
-## Release 1 — Real clipping MVP
-- [ ] First-class paste-link ingestion for YouTube, Twitch and Kick VODs plus local file upload.
-- [ ] Source metadata/caption resolution, audio-first analysis, selective section downloads and live-stream capture where supported.
-- [ ] WhisperX/faster-whisper transcription and word timestamps.
-- [ ] Speaker diarization with optional backend selection.
-- [ ] PySceneDetect and audio energy/silence analysis.
-- [ ] Explainable highlight candidate scoring.
-- [ ] Candidate review and manual trim/split/merge.
-- [ ] FFmpeg 9:16, 1:1 and 16:9 composition and caption rendering.
-- [ ] Playable preview and verified MP4 export.
+## Release 0 — Local clipping vertical slice
+- [x] React + TypeScript + Vite studio foundation.
+- [x] FastAPI health and local media API.
+- [x] Streamed local upload with FFprobe media validation and upload-size limit.
+- [x] SQLite records for assets, projects, jobs and clips.
+- [x] FFmpeg audio extraction.
+- [x] faster-whisper transcription with segment and word timestamps.
+- [x] Transcript-window highlight candidates with explainable heuristic score breakdown.
+- [x] Candidate review and source preview.
+- [x] Manual clip start/end/title editing.
+- [x] FFmpeg vertical MP4 export and download endpoint.
+- [x] Startup recovery for queued/processing jobs.
+- [ ] Verify the full flow against a representative rights-cleared media test fixture in CI.
+- [ ] Add output probing, media-quality checks and render regression tests.
+- [ ] Harden MIME sniffing, path isolation, upload quotas and cleanup.
+- [ ] Add cancellation, idempotency, bounded queue semantics and job-attempt history.
+
+## Release 1 — Core clipping quality
+- [ ] Improve transcript candidate segmentation and context completeness.
+- [ ] Language detection and transcript correction.
+- [ ] Speaker diarization with optional provider/model adapter.
+- [ ] PySceneDetect and audio-energy/silence analysis.
+- [ ] Visual-event and subject analysis adapter.
+- [ ] Evidence-backed score dimensions, confidence and manual feedback.
+- [ ] Candidate deduplication, configurable count and duration presets.
+- [ ] 9:16, 1:1 and 16:9 export presets.
+- [ ] Word-timed caption generation and subtitle burn-in.
+- [ ] Export validation and batch rendering.
 
 ## Release 2 — Professional editor
-- [ ] Transcript-linked timeline and word-level edit controls.
-- [ ] YOLO/MediaPipe subject tracking and active-speaker layouts.
-- [ ] Caption Lab with styles, karaoke emphasis and multilingual workflows.
+- [ ] Transcript-linked timeline and frame-accurate controls.
+- [ ] Split, merge, ripple edits, undo/redo and non-destructive versions.
+- [ ] Subject tracking, active-speaker layouts and manual keyframes.
+- [ ] Caption Lab, multilingual captions and accessibility checks.
 - [ ] Brand kits, watermark, title/hook overlays and templates.
-- [ ] Remotion motion-graphics integration after runtime/licence validation.
-- [ ] Render queue, batch processing, retries and quality gate.
+- [ ] Audio cleanup, ducking, licensed music and B-roll controls.
+- [ ] Render queue, retries and output quality gate.
 
-## Release 3 — Growth Intelligence (Blow Up-inspired)
-- [ ] Authorized creator profile/channel audit.
-- [ ] Audience and niche-aware content ideas.
-- [ ] Script, hook, CTA and title generation.
-- [ ] Video critique for pacing, clarity, audio, visual quality and opening hook.
-- [ ] Thumbnail, description, hashtag and chapter generation.
-- [ ] Cross-platform repurpose plans and content calendar.
-- [ ] Brand voice and creator-specific recommendations.
+## Release 3 — Supported source ingestion
+- [ ] Source adapter interface and URL metadata preview.
+- [ ] Official/authorized YouTube, Twitch and Kick VOD paths where permitted.
+- [ ] Caption/transcript resolution and audio-first analysis where available.
+- [ ] Selective segment retrieval when the provider supports it.
+- [ ] Live capture only through permitted APIs/providers, with explicit stop/status controls.
+- [ ] SSRF protections, redirect validation, source rights and provider capability reporting.
 
-## Release 4 — Publishing and analytics
-- [ ] Official YouTube publishing adapter.
+## Release 4 — Repurposing, publishing and calendar
+- [ ] Platform-specific dimensions, duration, copy and thumbnail packaging.
+- [ ] Official YouTube publishing adapter and OAuth.
 - [ ] Approved Instagram/Facebook publishing adapter.
-- [ ] TikTok Content Posting API capability and app-review assessment.
+- [ ] TikTok Content Posting API review and capability assessment.
 - [ ] Independently assess LinkedIn, X, Threads and Pinterest.
-- [ ] OAuth, scopes, destination capability checks and credential management.
-- [ ] Draft preview, scheduling, publishing logs and retries.
-- [ ] Import available post metrics and build performance reports.
-- [ ] Use performance data to improve future recommendations.
+- [ ] Draft preview, human approval, timezone-aware scheduling and calendar.
+- [ ] Delivery receipts, logs, retries and published post links.
 
-## Release 5 — Production quality and scale
-- [ ] Local installer, dependency/model manager and hardware diagnostics.
-- [ ] Hosted isolated workers, private object storage and quotas.
-- [ ] Accessibility, keyboard and responsive review.
-- [ ] End-to-end media quality tests and golden output tests.
-- [ ] Security, privacy, licence and performance audit.
-- [ ] Monitoring, backup, retention and account deletion workflows.
+## Release 5 — Analytics and Growth Intelligence
+- [ ] Import verified metrics from authorized connected channels.
+- [ ] Compare results by topic, hook, format, length and posting time.
+- [ ] Creator/channel audit using authorized data.
+- [ ] Niche and trend intelligence with source, freshness, geography and confidence.
+- [ ] Content gaps, scripts, hooks, CTAs, metadata and repurpose plans.
+- [ ] Feedback loop connecting actual performance to future clip recommendations.
+
+## Release 6 — StoryLab and Workflow Canvas
+- [ ] Research-backed storyboard with citations and fact verification.
+- [ ] Scene plans, narration, shot direction, prompts and timing.
+- [ ] Reference asset continuity and rights metadata.
+- [ ] Typed workflow graph, branching, parallel execution and reusable templates.
+- [ ] Autosave, versions, previews, durable DAG jobs, retries and cancellation.
+- [ ] Image/video/voice/audio providers behind capability-aware adapters.
+
+## Release 7 — Hosted production and collaboration
+- [ ] Authentication, email verification, password recovery and secure sessions.
+- [ ] Workspace/project roles and tenant isolation.
+- [ ] PostgreSQL schema and migrations.
+- [ ] Durable hosted queue, isolated workers and private object storage.
+- [ ] Encrypted OAuth credentials, quotas, usage metering and billing.
+- [ ] Notifications, audit events, data export/deletion and retention controls.
+- [ ] Monitoring, backups, restore drills, accessibility and security audits.
+- [ ] Desktop/local worker packaging and optional GPU worker pool.
 
 ## Release gates
-A capability is complete only after implementation, automated tests, manual verification with representative rights-cleared media, and documented hardware/API requirements. UI mockups and placeholder controls do not count as completed features.
-
-
-## Release 3A — Niche Intelligence and StoryLab
-- [ ] Trend and niche category discovery with freshness, source, confidence and geography labels.
-- [ ] Demand, competition, clip-density, evergreen and monetization-fit scoring with transparent evidence.
-- [ ] Niche watchlists, comparisons, content gaps and recurring series plans.
-- [ ] Topic/transcript-to-storyline generation with hooks, narrative beats and CTA.
-- [ ] Scene-by-scene storyboard with narration, visual direction, shot prompts and time estimates.
-- [ ] Fact/source verification workflow and reference-image/style continuity.
-- [ ] Image, video, voice and sound provider adapters with licensing/consent controls.
-
-## Release 3B — Visual Workflow Canvas
-- [ ] Typed node graph for brief, research, script, storyboard, media generation, voice, composition, captions, quality gate and publishing.
-- [ ] Branching, parallel tasks, reusable templates and downstream reruns.
-- [ ] Autosave, version history, previews, logs, retries and durable DAG execution.
-- [ ] Provider registry with capability, availability, region, pricing and rights metadata.
-- [ ] End-to-end strategy-to-publish workflow tests.
+- Frontend typecheck/build and backend tests pass.
+- Representative media completes upload → analysis → review → edit → export → download.
+- Jobs recover and retry without duplicate outputs or data loss.
+- Every output passes FFprobe and media decode validation.
+- Public hosted deployment is blocked until authentication, tenant isolation, private storage and rate limits are verified.
+- Provider features are labelled unavailable until authorization and real end-to-end tests pass.
