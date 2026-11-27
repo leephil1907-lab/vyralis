@@ -747,3 +747,34 @@ body{color:var(--s-ink);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothi
 .sidebar::-webkit-scrollbar{width:8px}
 .sidebar::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:99px}
 .sidebar::-webkit-scrollbar-track{background:transparent}
+
+
+/* VYRALIS adaptive glass workspace — precise, quiet, lime-accented. */
+:root{color-scheme:dark;font-family:'DM Sans',sans-serif;color:#f2f7f2;background:#070a08}
+body{background:#070a08;color:#f2f7f2}
+button:focus-visible,a:focus-visible,input:focus-visible{outline-color:#d7ff42}
+.sidebar{background:rgba(8,13,11,.94);border-right-color:rgba(219,255,229,.1);backdrop-filter:blur(28px)}
+.brand small{color:#d7ff42}
+.workspace-avatar,.profile-avatar{background:linear-gradient(135deg,#d7ff42,#3e9c75 72%,#173f34)}
+.nav-item{color:#9eaaa2}.nav-item:hover{background:rgba(255,255,255,.045);color:#f3f8f3}
+.nav-item.active{background:linear-gradient(100deg,rgba(215,255,66,.13),rgba(83,153,108,.06));color:#eff8e9;border-color:rgba(215,255,66,.2);box-shadow:inset 2px 0 #d7ff42}
+.engine-card{background:linear-gradient(145deg,rgba(52,83,57,.2),rgba(13,22,17,.6));border-color:rgba(215,255,66,.15)}
+.engine-card button,.text-button{color:#d7ff42}
+.topbar{background:rgba(7,11,9,.78);border-bottom-color:rgba(221,255,231,.1)}
+.engine-pill{border-color:rgba(221,255,231,.14);background:rgba(255,255,255,.025)}
+.eyebrow,.micro-label{color:#d7ff42}
+.page-heading h1 em{background:linear-gradient(90deg,#e8ff9d,#d7ff42 55%,#8be8d0);background-clip:text;color:transparent}
+.button-primary{background:linear-gradient(110deg,#e2ff75,#c6f43d);color:#11170d;box-shadow:0 9px 26px rgba(180,231,57,.16)}
+.button-primary:hover{filter:brightness(1.06)}
+.button-secondary{border-color:rgba(221,255,231,.18);color:#e4eee6}
+.button-secondary:hover{border-color:rgba(215,255,66,.45);background:rgba(215,255,66,.07)}
+.glass{border-color:rgba(221,255,231,.12);background:linear-gradient(145deg,rgba(23,31,26,.84),rgba(11,17,13,.82));box-shadow:0 18px 54px rgba(0,0,0,.2),inset 0 1px rgba(255,255,255,.045);backdrop-filter:blur(22px)}
+.welcome-card{background:radial-gradient(ellipse at 78% 20%,rgba(215,255,66,.1),transparent 42%),linear-gradient(145deg,rgba(23,34,25,.9),rgba(10,16,12,.9))}
+.visual-orbit{border-color:rgba(215,255,66,.24)}
+.orbit-b{border-color:rgba(139,232,208,.2)}
+.visual-core{background:linear-gradient(145deg,rgba(215,255,66,.16),rgba(62,156,117,.14));border-color:rgba(215,255,66,.25);box-shadow:0 0 55px rgba(175,224,67,.12)}
+.float-chip,.quick-icon,.asset-art,.empty-icon{background:rgba(215,255,66,.08);border-color:rgba(215,255,66,.18);color:#d7ff42}
+.quick-option{border-top-color:rgba(221,255,231,.1)}
+.quick-option:hover b{color:#d7ff42}
+.metric-card>span{color:#a5b2a8}
+.status-tag{color:#b5ec83}
