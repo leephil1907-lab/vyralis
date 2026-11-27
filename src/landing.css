@@ -805,3 +805,22 @@
 .vy-site .vy-nav a:focus-visible,.vy-site :focus-visible{outline-color:#d7ff42}
 @media(max-width:900px){.vy-hero-grid{grid-template-columns:1fr}.vy-product{transform:none}.vy-sheet{margin-left:10px;margin-right:10px;border-radius:28px}}
 @media(prefers-reduced-motion:reduce){.vy-site *,.vy-site *::before,.vy-site *::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+
+/* Secondary landing surfaces and feature cards. */
+.vy-announce{background:rgba(215,255,66,.08);border-bottom:1px solid rgba(215,255,66,.12);color:#d7ff42}
+.vy-tile,.vy-shelf,.vy-preview,.vy-mock,.vy-explain,.vy-feature,.vy-ledger-row,.vy-surface,.vy-plan,.vy-road-item,.vy-faq-item{
+ background:linear-gradient(145deg,rgba(24,33,28,.82),rgba(9,14,12,.86));
+ border:1px solid rgba(220,255,231,.13);box-shadow:0 18px 48px -34px #000,inset 0 1px rgba(255,255,255,.045);
+ backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+}
+.vy-tile-quote,.vy-feature p,.vy-ledger-row,.vy-surface p,.vy-plan-note,.vy-road-item p,.vy-faq-item p{color:#a8b5ac}
+.vy-feature-icon,.vy-surface-icon,.vy-art-icon,.vy-step-icon{color:#d7ff42;background:rgba(215,255,66,.08);border-color:rgba(215,255,66,.18)}
+.vy-chip,.vy-chip-live,.vy-chip-next{background:rgba(215,255,66,.08);border-color:rgba(215,255,66,.2);color:#d7ff42}
+.vy-plan.featured{border-color:rgba(215,255,66,.48);box-shadow:0 0 0 1px rgba(215,255,66,.12),0 22px 60px -36px rgba(215,255,66,.18)}
+.vy-plan-price,.vy-step-num,.vy-bar-row strong{color:#d7ff42}
+.vy-mock-bar,.vy-mock-row{border-color:rgba(220,255,231,.1)}
+.vy-faq-item summary{color:#edf5ee}
+.vy-roadmap-inner{background:rgba(11,17,14,.68);border:1px solid rgba(215,255,66,.14);border-radius:28px;padding:clamp(22px,3vw,36px)}
+.vy-hero-media{filter:drop-shadow(0 28px 65px rgba(0,0,0,.38))}
+.vy-mobile-menu{background:rgba(7,11,9,.97);border:1px solid rgba(215,255,66,.16);backdrop-filter:blur(24px)}
+.vy-mobile-link{color:#eef5ef;border-bottom-color:rgba(220,255,231,.1)}
