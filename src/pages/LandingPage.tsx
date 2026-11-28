@@ -5,7 +5,7 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowRight, ArrowUpRight, AudioLines, ChartNoAxesCombined, Check,
   ChevronDown, Clapperboard, Compass, Film, Layers3, Link2, ListChecks,
-  Menu, Network, Palette, Play, Plus, Radio, RotateCcw, Scissors,
+  Menu, MessageCircle, Network, Palette, Play, Plus, Radio, RotateCcw, Scissors,
   ShieldCheck, Sparkles, Upload, X,
 } from "lucide-react";
 import "../landing.css";
@@ -807,7 +807,7 @@ export default function LandingPage() {
                     target="_blank"
                     rel="noreferrer"
                   >
-                    Order on WhatsApp <ArrowUpRight size={14} />
+                    <MessageCircle size={16} aria-hidden="true" /> Order package <ArrowUpRight size={14} />
                   </a>
                 </div>
               </Reveal>
@@ -909,7 +909,7 @@ export default function LandingPage() {
                     Run it locally <ArrowRight size={14} />
                   </Link>
                   <a className="vy-btn vy-btn-ghost" href="https://wa.me/2348125811201?text=Hi%20VYRALIS%2C%20I%27d%20like%20to%20discuss%20a%20clipping%20order." target="_blank" rel="noreferrer">
-                    Chat with us <ArrowUpRight size={14} />
+                    <MessageCircle size={16} aria-hidden="true" /> Chat with us <ArrowUpRight size={14} />
                   </a>
                 </div>
                 <span className="vy-cta-note">Local processing · FFmpeg + faster-whisper · your files stay on your disk</span>
