@@ -550,6 +550,19 @@
 }
 .vy-ledger-row dd small{display:block;font-weight:400;font-size:11.5px;color:var(--muted);margin-top:2px}
 
+/* service packages */
+.vy-service-plans{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.vy-service-plan{padding:22px;min-width:0}
+.vy-service-plan .vy-plan-head{align-items:flex-start;min-height:28px}
+.vy-service-plan .vy-plan-price{font-size:clamp(25px,2.6vw,36px);white-space:nowrap}
+.vy-service-count{margin:-7px 0 0;font:600 14px/1.35 var(--label);color:var(--violet-2)}
+.vy-service-note{margin:-11px 0 0;font-size:12px;line-height:1.5;color:var(--muted)}
+.vy-plan.featured .vy-service-count{color:#D7C3F0}
+.vy-plan.featured .vy-service-note{color:#B9AACB}
+.vy-service-selfhost{margin:12px 0 0;font-size:12px;line-height:1.6;color:var(--muted)}
+.vy-service-selfhost a{color:var(--violet);font-weight:600}
+.vy-service-selfhost a:hover{text-decoration:underline}
+
 /* plans */
 .vy-plans{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
 .vy-plan{
@@ -658,6 +671,7 @@
 
 /* ---------- responsive ---------- */
 @media(max-width:1080px){
+  .vy-service-plans{grid-template-columns:repeat(2,minmax(0,1fr))}
   .vy-nav-links{gap:0}
   .vy-nav-links a,.vy-nav-links button{padding:9px 10px;font-size:13.5px}
   .vy-nav-status{display:none}
@@ -683,6 +697,7 @@
   .vy-roadmap-inner{grid-template-columns:1fr}
 }
 @media(max-width:720px){
+  .vy-service-plans{grid-template-columns:1fr}
   .vy-display{font-size:clamp(40px,10.5vw,64px)}
   .vy-section{padding:56px 0}
   .vy-sheet{border-radius:30px 30px 0 0;padding:44px 0 54px}
