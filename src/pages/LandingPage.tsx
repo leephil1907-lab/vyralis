@@ -139,8 +139,8 @@ const faqs = [
     a: "Local files (MP4, MOV, MKV, WebM, AVI) and eligible public YouTube, Twitch and Kick links through yt-dlp, with a host allowlist and a rights confirmation. Region locks, age gates and provider restrictions can still block an import, and the job reports why.",
   },
   {
-    q: "Is there a subscription?",
-    a: "No. The studio is self-hosted and there is no billing layer anywhere in the code. If a hosted version ever ships, it will be priced and stated here first — you will not find a fake checkout on this site.",
+    q: "Do I need a subscription?",
+    a: "No compulsory subscription or setup fee. Starter, Creator and Growth are one-off clipping orders. Monthly Partner is an optional monthly package. VYRALIS also maintains a self-hosted studio project; a hosted software subscription is not currently offered.",
   },
   {
     q: "Who owns the clips I make?",
@@ -767,62 +767,53 @@ export default function LandingPage() {
         <div className="vy-shell">
           <div className="vy-section-head">
             <div>
-              <Reveal><span className="vy-eyebrow"><i className="vy-dot" />What it costs</span></Reveal>
-              <Reveal delay={0.05}><h2 className="vy-h2">Self-hosted, and<br />stated plainly.</h2></Reveal>
+              <Reveal><span className="vy-eyebrow"><i className="vy-dot" />Done-for-you clipping</span></Reveal>
+              <Reveal delay={0.05}><h2 className="vy-h2">More clips.<br />Less production cost.</h2></Reveal>
             </div>
             <Reveal delay={0.1}>
               <p className="vy-lede">
-                There is no billing layer in this codebase. The studio runs on hardware you
-                already have, and the source is in the open.
+                Send us a long-form video. We turn it into finished short-form clips with
+                vertical framing, captions and hook text — ready for your social channels.
               </p>
             </Reveal>
           </div>
-          <div className="vy-plans">
-            <Reveal>
-              <div className="vy-plan featured">
-                <div className="vy-plan-head">
-                  <h3>Self-hosted</h3>
-                  <span className="vy-chip vy-chip-live">Available now</span>
+          <div className="vy-service-plans">
+            {[
+              { name: "Starter", price: "₦15,000", count: "5 finished clips", note: "A simple first batch", featured: false },
+              { name: "Creator", price: "₦35,000", count: "12 finished clips", note: "For a consistent posting rhythm", featured: true },
+              { name: "Growth", price: "₦65,000", count: "25 finished clips", note: "For a regular flow of content", featured: false },
+              { name: "Monthly Partner", price: "₦100,000", count: "45 clips per month", note: "Ongoing monthly clipping support", featured: false },
+            ].map((plan) => (
+              <Reveal key={plan.name}>
+                <div className={"vy-plan vy-service-plan" + (plan.featured ? " featured" : "")}>
+                  <div className="vy-plan-head">
+                    <h3>{plan.name}</h3>
+                    {plan.featured && <span className="vy-chip vy-chip-live">Popular choice</span>}
+                  </div>
+                  <div className="vy-plan-price">{plan.price}</div>
+                  <p className="vy-service-count">{plan.count}</p>
+                  <p className="vy-service-note">{plan.note}</p>
+                  <ul>
+                    {[
+                      "Vertical 9:16 video exports",
+                      "Word-timed captions",
+                      "Hook text and clip titles",
+                      "Reviewed, downloadable files",
+                    ].map((line) => <li key={line}><Check size={14} />{line}</li>)}
+                  </ul>
                 </div>
-                <div className="vy-plan-price">Free<small>your hardware</small></div>
-                <ul>
-                  {[
-                    "Unlimited imports, clips and renders",
-                    "Word-timed captions plus SRT, VTT and ASS sidecars",
-                    "Auto-reframing and measured quality reports",
-                    "Real OAuth connections with your own provider apps",
-                    "Documentation, runbook and source in the repo",
-                  ].map((line) => <li key={line}><Check size={14} />{line}</li>)}
-                </ul>
-                <Link className="vy-btn vy-btn-coral" to="/docs/deployment-runbook">
-                  Read the deployment runbook <ArrowUpRight size={14} />
-                </Link>
-              </div>
-            </Reveal>
-            <Reveal delay={0.06}>
-              <div className="vy-plan">
-                <div className="vy-plan-head">
-                  <h3>Hosted</h3>
-                  <span className="vy-chip vy-chip-next">Not offered</span>
-                </div>
-                <div className="vy-plan-price">—<small>no fake checkout</small></div>
-                <ul>
-                  {[
-                    "No plan, no trial and no card form on this site",
-                    "A managed version needs per-tenant isolation first",
-                    "When it exists, pricing will be published here before sign-up",
-                  ].map((line) => <li key={line}><Plus size={14} />{line}</li>)}
-                </ul>
-                <Link className="vy-btn vy-btn-ghost" to="/docs/roadmap">
-                  See the release roadmap <ArrowRight size={14} />
-                </Link>
-              </div>
-              <p className="vy-plan-note">
-                Costs you control: your electricity, disk and any provider API quota. The studio
-                makes no outbound calls you did not start.
-              </p>
-            </Reveal>
+              </Reveal>
+            ))}
           </div>
+          <p className="vy-plan-note">
+            No compulsory subscription or setup fee. The first three packages are one-off orders;
+            Monthly Partner is billed monthly. Delivery timing is agreed before work begins.
+            Views and virality are never guaranteed.
+          </p>
+          <p className="vy-service-selfhost">
+            Prefer to run the software yourself? The VYRALIS Studio is still available as a
+            self-hosted project. <Link to="/docs/deployment-runbook">Read the deployment runbook <ArrowUpRight size={13} /></Link>.
+          </p>
         </div>
       </section>
 
