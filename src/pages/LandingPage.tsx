@@ -801,6 +801,14 @@ export default function LandingPage() {
                       "Reviewed, downloadable files",
                     ].map((line) => <li key={line}><Check size={14} />{line}</li>)}
                   </ul>
+                  <a
+                    className="vy-btn vy-btn-primary vy-service-order"
+                    href={`https://wa.me/2348125811201?text=${encodeURIComponent(`Hi VYRALIS, I’d like to order the ${plan.name} package (${plan.price} for ${plan.count}). Please share the next steps.`) }`}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Order on WhatsApp <ArrowUpRight size={14} />
+                  </a>
                 </div>
               </Reveal>
             ))}
@@ -900,6 +908,9 @@ export default function LandingPage() {
                   <Link className="vy-btn vy-btn-ghost" to="/docs/deployment-runbook">
                     Run it locally <ArrowRight size={14} />
                   </Link>
+                  <a className="vy-btn vy-btn-ghost" href="https://wa.me/2348125811201?text=Hi%20VYRALIS%2C%20I%27d%20like%20to%20discuss%20a%20clipping%20order." target="_blank" rel="noreferrer">
+                    Chat with us <ArrowUpRight size={14} />
+                  </a>
                 </div>
                 <span className="vy-cta-note">Local processing · FFmpeg + faster-whisper · your files stay on your disk</span>
               </div>
