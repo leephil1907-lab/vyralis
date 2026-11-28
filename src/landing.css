@@ -737,3 +737,9 @@
 @media(max-width:720px){
   .vy-sheet + .vy-section{margin-top:-26px;border-radius:26px 26px 0 0}
 }
+
+
+/* WhatsApp contact actions */
+.vy-service-order,.vy-cta-actions a[href*="wa.me"]{display:inline-flex;align-items:center;justify-content:center;gap:9px}
+.vy-service-order svg,.vy-cta-actions a[href*="wa.me"] svg{flex:none;color:#25D366}
+.vy-service-order{margin-top:18px;width:100%}
